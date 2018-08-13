@@ -13,18 +13,18 @@
         <link rel="icon" href="http://yoursite.com/assets/images/author.JPG">
     
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\n运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际生产中会导致服务不可用，所以确保机器的鲁棒性，JVM调优是不可忽视的一环。\n对象回收判断在进行JVM调优之前，我们要先对对象回收判断和垃圾回收方式有所了解，才能针对他们的特点考虑如何进行回收。如何判断对象是否应该被回收呢？有两种方式引用计数法和可达性分析，通常我们采用可达性分析来进行回收操作。\n引用计数法引用计数法非常简单，如果有引用指向了这个对象则把这个对象计数加一，如果一个对象的计数为0说明这个对象没有引用可以回收。但是这种方法存在明显的问题，1.无法判断四种不同类型的引用情况；2.如果发生对象之间的循环引用无法清理，导致内存泄漏。\n可达性分析可达性分析就是从一系列的ROOT对象出发，能够达到的对象我们就认为是不应该被回收的，其他对象无论是成环还是其他形状的对象我们都会进行回收操作。ROOT包括所有的栈上的对象以及在方法区中的静态变量能够联系到的堆中的对象。\n垃圾回收算法在实际应用中，新生代的虚拟机运用复制算法，把空间分成8比1比1的三个部分，每次用其中的9块，把剩余的存货对象放入1块中，因为新生代的对象普遍寿命短。在老年代中因为寿命比较长久，使用标记整理算法。新生代和老年代的回收相比，新生代比老年代快10倍，两者触发回收都是在空间（新生代是Eden）满了的情况下。\n标记-清除标记清除指现现内存堆区域标记一遍，发现所有需要回收的数据，将其打上标记，然后从头开始清理垃圾。这样的问题在于，有可能清理之后空间中有很多不连续的可用空间，碎片化的情况比较严重。这种算法的优势是简单。\n复制算法将堆空间分成两边，每次只用其中的一部分，需要进行清理的时候，将所有存活下来的数据放到另外一块区域上，之后统一把这半边的数据全部刷掉。这种方法的好处在于清理简单，劣势在于会造成空间的浪费，每次只用一半。\n标记-整理标记整理在标记清除的基础上进行了优化，先把标记后存活的对象都放在堆空间的一侧，之后从结尾刷掉其他所有数据。\nOOM异常与调优OOM堆溢出如果我们在堆上创建了一些不是很大的对象，但是创建数量很多就有可能造成堆溢出。这个时候我们通常可以设置参数HeapDumpOnOutOfMemory来打印溢出瞬间的堆空间快照。一般的情况下堆溢出分为两类，一类是堆空间溢出，空间不够大，我们可以设置参数增大的大小和自动扩展范围。还有一种是内存泄漏导致空间比实际的空间小，比如ThreadLocal配合线程池的情况，这种情况下我们通过工具进行可达性分析，分析出有问题的部分想办法进行回收即可。\n可能因为程序会产生非常大量的小对象，比如hashmap百万个，这些数据都不能回收，这样会出发很多次GC，但是效果都不好，而且默认的情况下我们使用复制算法进行操作，这样就会导致大量的复制操作，既然对象不符合“朝生夕死”的特点，我们也没必要使用复制算法了，这里推荐去掉两个小空间，然后直接将新生代的放到老年代里面去。\n如果老年代空间满了可能是有很多大对象，比如DOM分析出来的大文件全部加载到内存的时候就会放在老年代，这个时候我们可以预先对老年代扩容，免得老年代会不断的自动扩展。\nSOF栈溢出栈溢出是我们在一个线程之中调用的方法过多导致的，这种情况一般是递归的逻辑有问题造成的，我们在测试的时候就能测试出这种错误。除此之外一般不会发生StackOverflow的问题。\nOOM栈溢出栈还可能因为扩展的时候内存不够而溢出，这种情况比较特殊，是线程过多，而且每个线程中的调用链特别长的时候可能出现。此时为了解决这个问题，我们可以采用降低栈深度的方法，因为每个栈的深度降低了，总体可用的栈个数就能增加了。\nOOM方法区溢出方法区在1.8中已经不存在了，因为随着CGLib，groovy，JSP热部署等技术的出现，动态修改字节码生成类和类加载器替换生成类的操作越来越多，如果我们将方法区放在堆中已经难以满足现状的类数量，把方法区放本地内存中是一个不错的选择。新特性也不能神奇地消除类和类加载器导致的内存泄漏。\nOOM直接内存溢出直接内存溢出是我们在使用NIO的时候声明了一块区域，但这块区域的大小使得整个直接内存部分放不下，从而OOM。一般Thread Dump文件不大，但是其中有NIO操作的话可能是直接内存溢出导致的。直接内存溢出是NIO的底层通过Unsafe类来分配空间，分配的大小超过限额导致的。","dateCreated":"2018-08-13T19:49:43+08:00","dateModified":"2018-08-13T20:07:43+08:00","datePublished":"2018-08-13T19:49:43+08:00","description":"运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际生产中会导致服务不可用，所以确保机器的鲁棒性，JVM调优是不可忽视的一环。","headline":"JVM内存管理调优","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/13/JVM内存管理调优/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/13/JVM内存管理调优/"}</script>
-    <meta name="description" content="运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际生产中会导致服务不可用，所以确保机器的鲁棒性，JVM调优是不可忽视的一环。">
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\n运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际生产中会导致服务不可用，所以确保机器的鲁棒性，JVM调优是不可忽视的一环。\n对象回收判断在进行JVM调优之前，我们要先对对象回收判断和垃圾回收方式有所了解，才能针对他们的特点考虑如何进行回收。如何判断对象是否应该被回收呢？有两种方式引用计数法和可达性分析，通常我们采用可达性分析来进行回收操作。\n引用计数法引用计数法非常简单，如果有引用指向了这个对象则把这个对象计数加一，如果一个对象的计数为0说明这个对象没有引用可以回收。但是这种方法存在明显的问题，1.无法判断四种不同类型的引用情况；2.如果发生对象之间的循环引用无法清理，导致内存泄漏。\n可达性分析可达性分析就是从一系列的ROOT对象出发，能够达到的对象我们就认为是不应该被回收的，其他对象无论是成环还是其他形状的对象我们都会进行回收操作。ROOT包括所有的栈上的对象以及在方法区中的静态变量能够联系到的堆中的对象。\n垃圾回收算法在实际应用中，新生代的虚拟机运用复制算法，把空间分成8比1比1的三个部分，每次用其中的9块，把剩余的存货对象放入1块中，因为新生代的对象普遍寿命短。在老年代中因为寿命比较长久，使用标记整理算法。新生代和老年代的回收相比，新生代比老年代快10倍，两者触发回收都是在空间（新生代是Eden）满了的情况下。\n标记-清除标记清除指现现内存堆区域标记一遍，发现所有需要回收的数据，将其打上标记，然后从头开始清理垃圾。这样的问题在于，有可能清理之后空间中有很多不连续的可用空间，碎片化的情况比较严重。这种算法的优势是简单。\n复制算法将堆空间分成两边，每次只用其中的一部分，需要进行清理的时候，将所有存活下来的数据放到另外一块区域上，之后统一把这半边的数据全部刷掉。这种方法的好处在于清理简单，劣势在于会造成空间的浪费，每次只用一半。\n标记-整理标记整理在标记清除的基础上进行了优化，先把标记后存活的对象都放在堆空间的一侧，之后从结尾刷掉其他所有数据。\nOOM异常与调优OOM堆溢出如果我们在堆上创建了一些不是很大的对象，但是创建数量很多就有可能造成堆溢出。这个时候我们通常可以设置参数HeapDumpOnOutOfMemory来打印溢出瞬间的堆空间快照。一般的情况下堆溢出分为两类，一类是堆空间溢出，空间不够大，我们可以设置参数增大的大小和自动扩展范围。还有一种是内存泄漏导致空间比实际的空间小，比如ThreadLocal配合线程池的情况，这种情况下我们通过工具进行可达性分析，分析出有问题的部分想办法进行回收即可。\n可能因为程序会产生非常大量的小对象，比如hashmap百万个，这些数据都不能回收，这样会出发很多次GC，但是效果都不好，而且默认的情况下我们使用复制算法进行操作，这样就会导致大量的复制操作，既然对象不符合“朝生夕死”的特点，我们也没必要使用复制算法了，这里推荐去掉两个小空间，然后直接将新生代的放到老年代里面去。\n如果老年代空间满了可能是有很多大对象，比如DOM分析出来的大文件全部加载到内存的时候就会放在老年代，这个时候我们可以预先对老年代扩容，免得老年代会不断的自动扩展。\nSOF栈溢出栈溢出是我们在一个线程之中调用的方法过多导致的，这种情况一般是递归的逻辑有问题造成的，我们在测试的时候就能测试出这种错误。除此之外一般不会发生StackOverflow的问题。\nOOM栈溢出栈还可能因为扩展的时候内存不够而溢出，这种情况比较特殊，是线程过多，而且每个线程中的调用链特别长的时候可能出现。此时为了解决这个问题，我们可以采用降低栈深度的方法，因为每个栈的深度降低了，总体可用的栈个数就能增加了。\nOOM方法区溢出方法区在1.8中已经不存在了，因为随着CGLib，groovy，JSP热部署等技术的出现，动态修改字节码生成类和类加载器替换生成类的操作越来越多，如果我们将方法区放在堆中已经难以满足现状的类数量，把方法区放本地内存中是一个不错的选择。新特性也不能神奇地消除类和类加载器导致的内存泄漏。\nOOM直接内存溢出直接内存溢出是我们在使用NIO的时候声明了一块区域，但这块区域的大小使得整个直接内存部分放不下，从而OOM。一般Thread Dump文件不大，但是其中有NIO操作的话可能是直接内存溢出导致的。直接内存溢出是NIO的底层通过Unsafe类来分配空间，分配的大小超过限额导致的。","dateCreated":"2018-08-13T19:49:43+08:00","dateModified":"2018-08-13T20:09:27+08:00","datePublished":"2018-08-13T19:49:43+08:00","description":"运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际","headline":"JVM内存管理调优","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/13/JVM内存管理调优/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/13/JVM内存管理调优/"}</script>
+    <meta name="description" content="运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际">
 <meta property="og:type" content="blog">
 <meta property="og:title" content="JVM内存管理调优">
 <meta property="og:url" content="http://yoursite.com/2018/08/13/JVM内存管理调优/index.html">
 <meta property="og:site_name" content="Gwon NyeongJin">
-<meta property="og:description" content="运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际生产中会导致服务不可用，所以确保机器的鲁棒性，JVM调优是不可忽视的一环。">
+<meta property="og:description" content="运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际">
 <meta property="og:locale" content="zh-cn">
-<meta property="og:updated_time" content="2018-08-13T12:07:43.621Z">
+<meta property="og:updated_time" content="2018-08-13T12:09:27.943Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="JVM内存管理调优">
-<meta name="twitter:description" content="运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际生产中会导致服务不可用，所以确保机器的鲁棒性，JVM调优是不可忽视的一环。">
+<meta name="twitter:description" content="运行时数据区是JVM把自己管理的内存部分抽象出来的模型，抽象出来的不同的数据区域，以便于管理，具体有程序计数器、堆、栈、本地方法栈和方法区这几个区域。这几个区域有的会产生内存溢出的问题，在实际">
 <meta name="twitter:creator" content="@tranquilpeak">
     
         <link rel="publisher" href="https://plus.google.com/123812884128439"/>
@@ -273,7 +273,7 @@
     </nav>
     <ul class="post-actions post-action-share">
         <li class="post-action hide-lg hide-md hide-sm">
-            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Share this post">
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
         </li>
@@ -313,7 +313,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Back to top">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -366,7 +366,7 @@
     </nav>
     <ul class="post-actions post-action-share">
         <li class="post-action hide-lg hide-md hide-sm">
-            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Share this post">
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
         </li>
@@ -406,7 +406,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Back to top">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
