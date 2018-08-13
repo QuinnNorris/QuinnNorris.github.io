@@ -1,0 +1,526 @@
+
+<!DOCTYPE html>
+<html lang="zh-cn">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Gwon NyeongJin">
+    <title>如何设计大数据去重 - Gwon NyeongJin</title>
+    <meta name="author" content="Gwon NyeongJin">
+    
+    
+        <link rel="icon" href="http://yoursite.com/assets/images/author.JPG">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\n至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。\nConcurrentHashMap数据量不大的时候可以采用concurrentHashMap来操作，在内存中对数据进行同步的CRUD操作。\n这种做法的好处是很明显的，逻辑处理很简单易懂。但是会产生大量的小对象，小对象会存放在新生代，新生代一般采用复制算法，大量不消亡的小对象在每次GC的时候都对JVM的性能产生灾难性的影响。这是我们不能接受的。\n布隆过滤器布隆过滤器是一种采用hash法进行查重的工具。它将每一条数据进行n次独立的hash处理，每次处理得到一个整数，总共得到n个整数。使用一个很长的数组表示不同的整数，每一次插入操作把这n个整数对应的位置的0设置为1（如果已经被设置为1则不变）。下次查找的时候经过同样的计算，如果这几个位置都是1则说明已经存在。\n布隆过滤器的优点是使用方便，因为并不将key存放进内存所以十分节省空间，多个hash算法无关，可以并发执行效率高。缺点也是显而易见的，这种算法是可能出现错误，有误判率这种概念。通过hash的次数我们可以降低误判率，但是不能保证没有误判的情况。\nBitMap　2.5亿个整数中找出不重复的整数的个数，内存空间不足以容纳这2.5亿个整数。 \n一个数字的状态只有三种，分别为不存在，只有一个，有重复。因此，我们只需要2bits就可以对一个数字的状态进行存储了，假设我们设定一个数字不存在为00，存在一次01，存在两次及其以上为11。那我们大概需要存储空间几十兆左右。接下来的任务就是遍历一次这2.5亿个数字，如果对应的状态位为00，则将其变为01；如果对应的状态位为01，则将其变为11；如果为11，,对应的转态位保持不变。\n最后，我们将状态位为01的进行统计，就得到了不重复的数字个数，时间复杂度为O(n)。\nhash分组如果有两份50G的数据，要查重，内存4G，怎么查？\n想法是先将50G的数据分别做hash%1000，分成1000个文件，如果有重复，那么A和B的重复数据一定在相对同一个文件内，因为hash结果是一样的。将1000个文件分别加载进来，一一比对。","dateCreated":"2018-08-13T19:16:21+08:00","dateModified":"2018-08-13T19:34:19+08:00","datePublished":"2018-08-13T19:16:21+08:00","description":"至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。","headline":"如何设计大数据去重","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/13/如何设计大数据去重/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/13/如何设计大数据去重/"}</script>
+    <meta name="description" content="至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="如何设计大数据去重">
+<meta property="og:url" content="http://yoursite.com/2018/08/13/如何设计大数据去重/index.html">
+<meta property="og:site_name" content="Gwon NyeongJin">
+<meta property="og:description" content="至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。">
+<meta property="og:locale" content="zh-cn">
+<meta property="og:updated_time" content="2018-08-13T11:34:19.175Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="如何设计大数据去重">
+<meta name="twitter:description" content="至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。">
+<meta name="twitter:creator" content="@tranquilpeak">
+    
+        <link rel="publisher" href="https://plus.google.com/123812884128439"/>
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://yoursite.com/assets/images/author.JPG"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    <link rel="stylesheet" href="/assets/css/style-gseklixh5hopgvsfveh0jwhkvakwdjiuogtfz9jmfqmdxq291r5fz66yjc8c.min.css">
+    <!--STYLES END-->
+    
+
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/ ">Gwon NyeongJin</a>
+    </div>
+    
+        
+            <a  class="header-right-picture "
+                href="#about">
+        
+        
+            <img class="header-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about">
+                    <img class="sidebar-profile-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+                </a>
+                <h4 class="sidebar-profile-name">Gwon NyeongJin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/ "
+                            
+                            title="春山如笑"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">春山如笑</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="火树银花"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">火树银花</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="晓风残月"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">晓风残月</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-archives"
+                            
+                            title="飞鸿印雪"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">飞鸿印雪</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/QuinnNorris" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://weibo.com/u/6556522860" target="_blank" rel="noopener" title="Weibo">
+                    
+                        <i class="sidebar-button-icon fab fa-weibo" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Weibo</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://blog.csdn.net/QuinnNorris" target="_blank" rel="noopener" title="CSDN">
+                    
+                        <i class="sidebar-button-icon fab fa-cuttlefish" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">CSDN</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:sei_qnz2015@126.com" target="_blank" rel="noopener" title="E-mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">E-mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-center">
+    
+        <h1 class="post-title">
+            如何设计大数据去重
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2018-08-13T19:16:21+08:00">
+	
+		    8月 13, 2018
+    	
+    </time>
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <!-- excerpt --></p>
+<p>至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。</p>
+<h2 id="ConcurrentHashMap"><a href="#ConcurrentHashMap" class="headerlink" title="ConcurrentHashMap"></a>ConcurrentHashMap</h2><p>数据量不大的时候可以采用concurrentHashMap来操作，在内存中对数据进行同步的CRUD操作。</p>
+<p>这种做法的好处是很明显的，逻辑处理很简单易懂。但是会产生大量的小对象，小对象会存放在新生代，新生代一般采用复制算法，大量不消亡的小对象在每次GC的时候都对JVM的性能产生灾难性的影响。这是我们不能接受的。</p>
+<h2 id="布隆过滤器"><a href="#布隆过滤器" class="headerlink" title="布隆过滤器"></a>布隆过滤器</h2><p>布隆过滤器是一种采用hash法进行查重的工具。它将每一条数据进行n次独立的hash处理，每次处理得到一个整数，总共得到n个整数。使用一个很长的数组表示不同的整数，每一次插入操作把这n个整数对应的位置的0设置为1（如果已经被设置为1则不变）。下次查找的时候经过同样的计算，如果这几个位置都是1则说明已经存在。</p>
+<p>布隆过滤器的优点是使用方便，因为并不将key存放进内存所以十分节省空间，多个hash算法无关，可以并发执行效率高。缺点也是显而易见的，这种算法是可能出现错误，有误判率这种概念。通过hash的次数我们可以降低误判率，但是不能保证没有误判的情况。</p>
+<p>BitMap　<br>2.5亿个整数中找出不重复的整数的个数，内存空间不足以容纳这2.5亿个整数。 </p>
+<p>一个数字的状态只有三种，分别为不存在，只有一个，有重复。因此，我们只需要2bits就可以对一个数字的状态进行存储了，假设我们设定一个数字不存在为00，存在一次01，存在两次及其以上为11。那我们大概需要存储空间几十兆左右。接下来的任务就是遍历一次这2.5亿个数字，如果对应的状态位为00，则将其变为01；如果对应的状态位为01，则将其变为11；如果为11，,对应的转态位保持不变。</p>
+<p>最后，我们将状态位为01的进行统计，就得到了不重复的数字个数，时间复杂度为O(n)。</p>
+<p>hash分组<br>如果有两份50G的数据，要查重，内存4G，怎么查？</p>
+<p>想法是先将50G的数据分别做hash%1000，分成1000个文件，如果有重复，那么A和B的重复数据一定在相对同一个文件内，因为hash结果是一样的。将1000个文件分别加载进来，一一比对。</p>
+            
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/13/Map类数据结构分析/" data-tooltip="Map类数据结构分析" aria-label="下一篇: Map类数据结构分析">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/13/如何设计大数据去重/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/13/如何设计大数据去重/&amp;title=如何设计大数据去重" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/13/如何设计大数据去重/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="gitment"></div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2018 Gwon NyeongJin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/13/Map类数据结构分析/" data-tooltip="Map类数据结构分析" aria-label="下一篇: Map类数据结构分析">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/13/如何设计大数据去重/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/13/如何设计大数据去重/&amp;title=如何设计大数据去重" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/13/如何设计大数据去重/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+    <i id="btn-close-shareoptions" class="fa fa-times"></i>
+    <ul class="share-options">
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/13/如何设计大数据去重/">
+                    <i class="fab fa-weibo" aria-hidden="true"></i><span>分享到 Weibo</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/13/如何设计大数据去重/&amp;title=如何设计大数据去重">
+                    <i class="fab fa-qq" aria-hidden="true"></i><span>分享到 QQ</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/13/如何设计大数据去重/">
+                    <i class="fa fa-star" aria-hidden="true"></i><span>分享到 Qzone</span>
+                </a>
+            </li>
+        
+    </ul>
+</div>
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+            <h4 id="about-card-name">Gwon NyeongJin</h4>
+        
+            <div id="about-card-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>student,ECNU</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                ShangHai,China
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/cover.jpg');"></div>
+        <!--SCRIPTS-->
+<script src="/assets/js/script-w92hbokc213ea69hftijqvxc1viotvpgnjvc4eyqwabobtvt4gyxbn08yj5r.min.js"></script>
+<!--SCRIPTS END-->
+
+    
+        <script type="text/javascript">
+            (function() {
+                function render() {
+                    new Gitment({
+                        id: 'http://yoursite.com/2018/08/13/如何设计大数据去重/',
+                        owner: 'QuinnNorris',
+                        repo: 'QuinnNorris.github.io',
+                        oauth: {
+                            client_id: '0e7c41f03dfb1c28ea35',
+                            client_secret: '3220af0710c19324499245a612c05094f6ee3321',
+                        }
+                    }).render('gitment');
+                }
+                var gc = document.createElement('script');
+                gc.type = 'text/javascript';
+                gc.src = '//imsun.github.io/gitment/dist/gitment.browser.js';
+                gc.charset = 'UTF-8';
+                gc.onload = render;
+                gc.async = true;
+                document.querySelector('body').appendChild(gc);
+                var gcs = document.createElement('link');
+                gcs.href = '//imsun.github.io/gitment/style/default.css';
+                gcs.type = 'text/css';
+                gcs.rel = 'stylesheet';
+                gcs.media = 'screen,print';
+                document.querySelector('head').appendChild(gcs);
+            })();
+	    </script>
+    
+
+
+
+    </body>
+</html>
