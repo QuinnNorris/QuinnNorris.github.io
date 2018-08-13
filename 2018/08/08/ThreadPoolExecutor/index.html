@@ -6,26 +6,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="generator" content="Gwon NyeongJin">
-    <title>TreeMap - Gwon NyeongJin</title>
+    <title>ThreadPoolExecutor - Gwon NyeongJin</title>
     <meta name="author" content="Gwon NyeongJin">
     
     
         <link rel="icon" href="http://yoursite.com/assets/images/author.JPG">
     
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"","dateCreated":"2018-08-06T18:50:53+08:00","dateModified":"2018-08-06T19:05:53+08:00","datePublished":"2018-08-06T18:50:53+08:00","description":"","headline":"TreeMap","image":[null,"https://quinnnorris.oss-cn-beijing.aliyuncs.com/bg.jpg?Expires=1533556167&OSSAccessKeyId=TMP.AQERb02qFsTuYYvS4AASgFQAbU6yv6HlSIlfiBcXhhqwUE0cEsh6YMjxdPhyAAAwLAIUKYpgdO_D16u2XFQ53KWcrfZNs3QCFGvwA1d9AIzuNeG3bq7zduQOLcBP&Signature=WSsF%2FfTrNwf6GgQsNsF%2Bm4uxeSo%3D"],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/","keywords":"知识点总结, JAVA","thumbnailUrl":"https://quinnnorris.oss-cn-beijing.aliyuncs.com/bg.jpg?Expires=1533556167&OSSAccessKeyId=TMP.AQERb02qFsTuYYvS4AASgFQAbU6yv6HlSIlfiBcXhhqwUE0cEsh6YMjxdPhyAAAwLAIUKYpgdO_D16u2XFQ53KWcrfZNs3QCFGvwA1d9AIzuNeG3bq7zduQOLcBP&Signature=WSsF%2FfTrNwf6GgQsNsF%2Bm4uxeSo%3D"}</script>
-    <meta name="description" content="桃李春风一杯酒江湖夜雨十年灯">
-<meta name="keywords" content="知识点总结,JAVA">
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"线程池处理模式\n线程池类结构","dateCreated":"2018-08-08T18:09:41+08:00","dateModified":"2018-08-08T18:24:48+08:00","datePublished":"2018-08-08T18:09:41+08:00","description":"","headline":"ThreadPoolExecutor","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/08/ThreadPoolExecutor/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/08/ThreadPoolExecutor/"}</script>
+    <meta name="description" content="线程池处理模式 线程池类结构">
 <meta property="og:type" content="blog">
-<meta property="og:title" content="TreeMap">
-<meta property="og:url" content="http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/index.html">
+<meta property="og:title" content="ThreadPoolExecutor">
+<meta property="og:url" content="http://yoursite.com/2018/08/08/ThreadPoolExecutor/index.html">
 <meta property="og:site_name" content="Gwon NyeongJin">
-<meta property="og:description" content="桃李春风一杯酒江湖夜雨十年灯">
+<meta property="og:description" content="线程池处理模式 线程池类结构">
 <meta property="og:locale" content="zh-cn">
-<meta property="og:updated_time" content="2018-08-06T11:05:53.859Z">
+<meta property="og:image" content="http://yoursite.com/2018/08/08/ThreadPoolExecutor/线程池处理模式.jpg">
+<meta property="og:updated_time" content="2018-08-08T10:24:48.653Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="TreeMap">
-<meta name="twitter:description" content="桃李春风一杯酒江湖夜雨十年灯">
+<meta name="twitter:title" content="ThreadPoolExecutor">
+<meta name="twitter:description" content="线程池处理模式 线程池类结构">
+<meta name="twitter:image" content="http://yoursite.com/2018/08/08/ThreadPoolExecutor/线程池处理模式.jpg">
 <meta name="twitter:creator" content="@tranquilpeak">
     
         <link rel="publisher" href="https://plus.google.com/123812884128439"/>
@@ -37,9 +38,6 @@
         <meta property="og:image" content="http://yoursite.com/assets/images/author.JPG"/>
     
     
-    
-        <meta property="og:image" content="https://quinnnorris.oss-cn-beijing.aliyuncs.com/bg.jpg?Expires=1533556167&amp;OSSAccessKeyId=TMP.AQERb02qFsTuYYvS4AASgFQAbU6yv6HlSIlfiBcXhhqwUE0cEsh6YMjxdPhyAAAwLAIUKYpgdO_D16u2XFQ53KWcrfZNs3QCFGvwA1d9AIzuNeG3bq7zduQOLcBP&amp;Signature=WSsF%2FfTrNwf6GgQsNsF%2Bm4uxeSo%3D"/>
-        <meta class="swiftype" name="image" data-type="enum" content="https://quinnnorris.oss-cn-beijing.aliyuncs.com/bg.jpg?Expires=1533556167&amp;OSSAccessKeyId=TMP.AQERb02qFsTuYYvS4AASgFQAbU6yv6HlSIlfiBcXhhqwUE0cEsh6YMjxdPhyAAAwLAIUKYpgdO_D16u2XFQ53KWcrfZNs3QCFGvwA1d9AIzuNeG3bq7zduQOLcBP&amp;Signature=WSsF%2FfTrNwf6GgQsNsF%2Bm4uxeSo%3D" />
     
     
     <!--STYLES-->
@@ -200,63 +198,43 @@
 </nav>
 
             
-        <div class="post-header-cover
-                    text-center
-                    post-header-cover--full"
-             style="background-image:url('https://quinnnorris.oss-cn-beijing.aliyuncs.com/bg.jpg?Expires=1533556167&amp;OSSAccessKeyId=TMP.AQERb02qFsTuYYvS4AASgFQAbU6yv6HlSIlfiBcXhhqwUE0cEsh6YMjxdPhyAAAwLAIUKYpgdO_D16u2XFQ53KWcrfZNs3QCFGvwA1d9AIzuNeG3bq7zduQOLcBP&amp;Signature=WSsF%2FfTrNwf6GgQsNsF%2Bm4uxeSo%3D');"
-             data-behavior="4">
-            
-                <div class="post-header main-content-wrap text-center">
-    
-        <h1 class="post-title">
-            TreeMap
-        </h1>
-    
-    
-        <div class="post-meta">
-    <time datetime="2018-08-06T18:50:53+08:00">
-	
-		    8月 06, 2018
-    	
-    </time>
-    
-        <span>发布在 </span>
-        
-    <a class="category-link" href="/categories/知识点总结/">知识点总结</a>
-
-
-    
-</div>
-
-    
-</div>
-
-            
-        </div>
-
             <div id="main" data-behavior="4"
-                 class="hasCover
+                 class="
                         hasCoverMetaIn
                         ">
                 
 <article class="post">
     
     
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            ThreadPoolExecutor
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2018-08-08T18:09:41+08:00">
+	
+		    8月 08, 2018
+    	
+    </time>
+    
+</div>
+
+    
+</div>
+
+    
     <div class="post-content markdown">
         <div class="main-content-wrap">
-            
+            <h2 id="线程池处理模式"><a href="#线程池处理模式" class="headerlink" title="线程池处理模式"></a>线程池处理模式</h2><p><img src="线程池处理模式.jpg" alt="线程池处理模式"></p>
+<h2 id="线程池类结构"><a href="#线程池类结构" class="headerlink" title="线程池类结构"></a>线程池类结构</h2>
             
 
         </div>
     </div>
     <div id="post-footer" class="post-footer main-content-wrap">
-        
-            <div class="post-footer-tags">
-                <span class="text-color-light text-small">标签</span><br/>
-                
-    <a class="tag tag--primary tag--small t-link" href="/tags/JAVA/">JAVA</a> <a class="tag tag--primary tag--small t-link" href="/tags/知识点总结/">知识点总结</a>
-
-            </div>
         
         
             <div class="post-actions-wrap">
@@ -264,8 +242,7 @@
         <ul class="post-actions post-action-nav">
             <li class="post-action">
                 
-                    
-                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/06/JAVA集合框架/" data-tooltip="JAVA集合框架" aria-label="上一篇: JAVA集合框架">
+                    <a class="post-action-btn btn btn--disabled">
                 
                     <i class="fa fa-angle-left" aria-hidden="true"></i>
                     <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
@@ -274,7 +251,7 @@
             <li class="post-action">
                 
                     
-                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/06/JAVA-2-4-HashMap/" data-tooltip="JAVA 2.4 HashMap" aria-label="下一篇: JAVA 2.4 HashMap">
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/08/多线程/" data-tooltip="多线程" aria-label="下一篇: 多线程">
                 
                     <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
                     <i class="fa fa-angle-right" aria-hidden="true"></i>
@@ -292,7 +269,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/" title="分享到 Weibo">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/08/ThreadPoolExecutor/" title="分享到 Weibo">
                     <i class="fab fa-weibo" aria-hidden="true"></i>
                 </a>
             </li>
@@ -300,7 +277,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/&amp;title=TreeMap" title="分享到 QQ">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/08/ThreadPoolExecutor/&amp;title=ThreadPoolExecutor" title="分享到 QQ">
                     <i class="fab fa-qq" aria-hidden="true"></i>
                 </a>
             </li>
@@ -308,7 +285,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/" title="分享到 Qzone">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/08/ThreadPoolExecutor/" title="分享到 Qzone">
                     <i class="fa fa-star" aria-hidden="true"></i>
                 </a>
             </li>
@@ -358,8 +335,7 @@
         <ul class="post-actions post-action-nav">
             <li class="post-action">
                 
-                    
-                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/06/JAVA集合框架/" data-tooltip="JAVA集合框架" aria-label="上一篇: JAVA集合框架">
+                    <a class="post-action-btn btn btn--disabled">
                 
                     <i class="fa fa-angle-left" aria-hidden="true"></i>
                     <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
@@ -368,7 +344,7 @@
             <li class="post-action">
                 
                     
-                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/06/JAVA-2-4-HashMap/" data-tooltip="JAVA 2.4 HashMap" aria-label="下一篇: JAVA 2.4 HashMap">
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/08/多线程/" data-tooltip="多线程" aria-label="下一篇: 多线程">
                 
                     <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
                     <i class="fa fa-angle-right" aria-hidden="true"></i>
@@ -386,7 +362,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/" title="分享到 Weibo">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/08/ThreadPoolExecutor/" title="分享到 Weibo">
                     <i class="fab fa-weibo" aria-hidden="true"></i>
                 </a>
             </li>
@@ -394,7 +370,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/&amp;title=TreeMap" title="分享到 QQ">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/08/ThreadPoolExecutor/&amp;title=ThreadPoolExecutor" title="分享到 QQ">
                     <i class="fab fa-qq" aria-hidden="true"></i>
                 </a>
             </li>
@@ -402,7 +378,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/" title="分享到 Qzone">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/08/ThreadPoolExecutor/" title="分享到 Qzone">
                     <i class="fa fa-star" aria-hidden="true"></i>
                 </a>
             </li>
@@ -435,7 +411,7 @@
             
             
             <li class="share-option">
-                <a class="share-option-btn" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/">
+                <a class="share-option-btn" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/08/ThreadPoolExecutor/">
                     <i class="fab fa-weibo" aria-hidden="true"></i><span>分享到 Weibo</span>
                 </a>
             </li>
@@ -443,7 +419,7 @@
             
             
             <li class="share-option">
-                <a class="share-option-btn" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/&amp;title=TreeMap">
+                <a class="share-option-btn" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/08/ThreadPoolExecutor/&amp;title=ThreadPoolExecutor">
                     <i class="fab fa-qq" aria-hidden="true"></i><span>分享到 QQ</span>
                 </a>
             </li>
@@ -451,7 +427,7 @@
             
             
             <li class="share-option">
-                <a class="share-option-btn" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/">
+                <a class="share-option-btn" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/08/ThreadPoolExecutor/">
                     <i class="fa fa-star" aria-hidden="true"></i><span>分享到 Qzone</span>
                 </a>
             </li>
@@ -511,7 +487,7 @@
             (function() {
                 function render() {
                     new Gitment({
-                        id: 'http://yoursite.com/2018/08/06/JAVA-2-5-TreeMap/',
+                        id: 'http://yoursite.com/2018/08/08/ThreadPoolExecutor/',
                         owner: 'QuinnNorris',
                         repo: 'QuinnNorris.github.io',
                         oauth: {
