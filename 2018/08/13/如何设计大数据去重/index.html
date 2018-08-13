@@ -6,25 +6,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="generator" content="Gwon NyeongJin">
-    <title>如何设计大数据去重 - Gwon NyeongJin</title>
+    <title>如何设计大量数据查重 - Gwon NyeongJin</title>
     <meta name="author" content="Gwon NyeongJin">
     
     
         <link rel="icon" href="http://yoursite.com/assets/images/author.JPG">
     
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\n至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。\nConcurrentHashMap数据量不大的时候可以采用concurrentHashMap来操作，在内存中对数据进行同步的CRUD操作。\n这种做法的好处是很明显的，逻辑处理很简单易懂。但是会产生大量的小对象，小对象会存放在新生代，新生代一般采用复制算法，大量不消亡的小对象在每次GC的时候都对JVM的性能产生灾难性的影响。这是我们不能接受的。\n布隆过滤器布隆过滤器是一种采用hash法进行查重的工具。它将每一条数据进行n次独立的hash处理，每次处理得到一个整数，总共得到n个整数。使用一个很长的数组表示不同的整数，每一次插入操作把这n个整数对应的位置的0设置为1（如果已经被设置为1则不变）。下次查找的时候经过同样的计算，如果这几个位置都是1则说明已经存在。\n布隆过滤器的优点是使用方便，因为并不将key存放进内存所以十分节省空间，多个hash算法无关，可以并发执行效率高。缺点也是显而易见的，这种算法是可能出现错误，有误判率这种概念。通过hash的次数我们可以降低误判率，但是不能保证没有误判的情况。\nBitMap　2.5亿个整数中找出不重复的整数的个数，内存空间不足以容纳这2.5亿个整数。 \n一个数字的状态只有三种，分别为不存在，只有一个，有重复。因此，我们只需要2bits就可以对一个数字的状态进行存储了，假设我们设定一个数字不存在为00，存在一次01，存在两次及其以上为11。那我们大概需要存储空间几十兆左右。接下来的任务就是遍历一次这2.5亿个数字，如果对应的状态位为00，则将其变为01；如果对应的状态位为01，则将其变为11；如果为11，,对应的转态位保持不变。\n最后，我们将状态位为01的进行统计，就得到了不重复的数字个数，时间复杂度为O(n)。\nhash分组如果有两份50G的数据，要查重，内存4G，怎么查？\n想法是先将50G的数据分别做hash%1000，分成1000个文件，如果有重复，那么A和B的重复数据一定在相对同一个文件内，因为hash结果是一样的。将1000个文件分别加载进来，一一比对。","dateCreated":"2018-08-13T19:16:21+08:00","dateModified":"2018-08-13T19:34:19+08:00","datePublished":"2018-08-13T19:16:21+08:00","description":"至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。","headline":"如何设计大数据去重","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/13/如何设计大数据去重/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/13/如何设计大数据去重/"}</script>
-    <meta name="description" content="至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。">
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\n至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。\nConcurrentHashMap数据量不大的时候可以采用concurrentHashMap来操作，在内存中对数据进行同步的CRUD操作。\n这种做法的好处是很明显的，逻辑处理很简单易懂。但是会产生大量的小对象，小对象会存放在新生代，新生代一般采用复制算法，大量不消亡的小对象在每次GC的时候都对JVM的性能产生灾难性的影响。这是我们不能接受的。\n布隆过滤器布隆过滤器是一种采用hash法进行查重的工具。它将每一条数据进行n次独立的hash处理，每次处理得到一个整数，总共得到n个整数。使用一个很长的数组表示不同的整数，每一次插入操作把这n个整数对应的位置的0设置为1（如果已经被设置为1则不变）。下次查找的时候经过同样的计算，如果这几个位置都是1则说明已经存在。\n布隆过滤器的优点是使用方便，因为并不将key存放进内存所以十分节省空间，多个hash算法无关，可以并发执行效率高。缺点也是显而易见的，这种算法是可能出现错误，有误判率这种概念。通过hash的次数我们可以降低误判率，但是不能保证没有误判的情况。\nBitMap　比如有2.5亿个整数中找出不重复的整数的个数，内存空间不足以容纳这2.5亿个整数。 \n一个数字的状态只有三种，分别为不存在，只有一个，有重复。因此，我们只需要2bits就可以对一个数字的状态进行存储了，假设我们设定一个数字不存在为00，存在一次01，存在两次及其以上为11。那我们大概需要存储空间几十兆左右。接下来的任务就是遍历一次这2.5亿个数字，如果对应的状态位为00，则将其变为01；如果对应的状态位为01，则将其变为11；如果为11，,对应的转态位保持不变。\n最后，我们将状态位为01的进行统计，就得到了不重复的数字个数，时间复杂度为O(n)。\nhash分组如果有两份50G的数据，要查重，内存4G，怎么查？\n想法是先将50G的数据分别做hash%1000，分成1000个文件，理论上hash做得好那么这1000个文件的大小是差不多接近的。如果有重复，那么A和B的重复数据一定在相对同一个文件内，因为hash结果是一样的。将1000个文件分别加载进来，一一比对是否有hash重复。这种想法是先把所有数据按照相关性进行分组，相关的数据会处于同样或者接近的位置中，再将小文件进行对比。\n有1千万条短信，找出重复出现最多的前10条？\n可以用哈希表的方法对1千万条分成若干组进行边扫描边建散列表。第一次扫描，取首字节，尾字节，中间随便两字节作为Hash Code，插入到hash table中。并记录其地址和信息长度和重复次数，1千万条信息，记录这几个信息还放得下。同Hash Code且等长就疑似相同，比较一下。相同记录只加1次进hash table，但将重复次数加1。一次扫描以后，已经记录各自的重复次数，进行第二次hash table的处理。用线性时间选择可在O（n）的级别上完成前10条的寻找。分组后每份中的top10必须保证各不相同，可hash来保证，也可直接按hash值的大小来分类。","dateCreated":"2018-08-13T19:16:21+08:00","dateModified":"2018-08-13T19:45:45+08:00","datePublished":"2018-08-13T19:16:21+08:00","description":"至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必","headline":"如何设计大量数据查重","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/13/如何设计大数据去重/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/13/如何设计大数据去重/"}</script>
+    <meta name="description" content="至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必">
 <meta property="og:type" content="blog">
-<meta property="og:title" content="如何设计大数据去重">
+<meta property="og:title" content="如何设计大量数据查重">
 <meta property="og:url" content="http://yoursite.com/2018/08/13/如何设计大数据去重/index.html">
 <meta property="og:site_name" content="Gwon NyeongJin">
-<meta property="og:description" content="至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。">
+<meta property="og:description" content="至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必">
 <meta property="og:locale" content="zh-cn">
-<meta property="og:updated_time" content="2018-08-13T11:34:19.175Z">
+<meta property="og:updated_time" content="2018-08-13T11:45:45.753Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="如何设计大数据去重">
-<meta name="twitter:description" content="至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必要的。">
+<meta name="twitter:title" content="如何设计大量数据查重">
+<meta name="twitter:description" content="至少在现阶段内存和CPU的执行效率在固定时间内是有限的，大量的数据的查重和去重处理不可能同时在内存中进行。就像外部排序算法和内部排序算法差别很大，遇到此类大量数据查重问题对算法进行设计是有必">
 <meta name="twitter:creator" content="@tranquilpeak">
     
         <link rel="publisher" href="https://plus.google.com/123812884128439"/>
@@ -207,7 +207,7 @@
         <div class="post-header main-content-wrap text-center">
     
         <h1 class="post-title">
-            如何设计大数据去重
+            如何设计大量数据查重
         </h1>
     
     
@@ -232,11 +232,13 @@
 <p>这种做法的好处是很明显的，逻辑处理很简单易懂。但是会产生大量的小对象，小对象会存放在新生代，新生代一般采用复制算法，大量不消亡的小对象在每次GC的时候都对JVM的性能产生灾难性的影响。这是我们不能接受的。</p>
 <h2 id="布隆过滤器"><a href="#布隆过滤器" class="headerlink" title="布隆过滤器"></a>布隆过滤器</h2><p>布隆过滤器是一种采用hash法进行查重的工具。它将每一条数据进行n次独立的hash处理，每次处理得到一个整数，总共得到n个整数。使用一个很长的数组表示不同的整数，每一次插入操作把这n个整数对应的位置的0设置为1（如果已经被设置为1则不变）。下次查找的时候经过同样的计算，如果这几个位置都是1则说明已经存在。</p>
 <p>布隆过滤器的优点是使用方便，因为并不将key存放进内存所以十分节省空间，多个hash算法无关，可以并发执行效率高。缺点也是显而易见的，这种算法是可能出现错误，有误判率这种概念。通过hash的次数我们可以降低误判率，但是不能保证没有误判的情况。</p>
-<p>BitMap　<br>2.5亿个整数中找出不重复的整数的个数，内存空间不足以容纳这2.5亿个整数。 </p>
+<h2 id="BitMap"><a href="#BitMap" class="headerlink" title="BitMap　"></a>BitMap　</h2><p>比如有2.5亿个整数中找出不重复的整数的个数，内存空间不足以容纳这2.5亿个整数。 </p>
 <p>一个数字的状态只有三种，分别为不存在，只有一个，有重复。因此，我们只需要2bits就可以对一个数字的状态进行存储了，假设我们设定一个数字不存在为00，存在一次01，存在两次及其以上为11。那我们大概需要存储空间几十兆左右。接下来的任务就是遍历一次这2.5亿个数字，如果对应的状态位为00，则将其变为01；如果对应的状态位为01，则将其变为11；如果为11，,对应的转态位保持不变。</p>
 <p>最后，我们将状态位为01的进行统计，就得到了不重复的数字个数，时间复杂度为O(n)。</p>
-<p>hash分组<br>如果有两份50G的数据，要查重，内存4G，怎么查？</p>
-<p>想法是先将50G的数据分别做hash%1000，分成1000个文件，如果有重复，那么A和B的重复数据一定在相对同一个文件内，因为hash结果是一样的。将1000个文件分别加载进来，一一比对。</p>
+<h2 id="hash分组"><a href="#hash分组" class="headerlink" title="hash分组"></a>hash分组</h2><p>如果有两份50G的数据，要查重，内存4G，怎么查？</p>
+<p>想法是先将50G的数据分别做hash%1000，分成1000个文件，理论上hash做得好那么这1000个文件的大小是差不多接近的。如果有重复，那么A和B的重复数据一定在相对同一个文件内，因为hash结果是一样的。将1000个文件分别加载进来，一一比对是否有hash重复。这种想法是先把所有数据按照相关性进行分组，相关的数据会处于同样或者接近的位置中，再将小文件进行对比。</p>
+<p>有1千万条短信，找出重复出现最多的前10条？</p>
+<p>可以用哈希表的方法对1千万条分成若干组进行边扫描边建散列表。第一次扫描，取首字节，尾字节，中间随便两字节作为Hash Code，插入到hash table中。并记录其地址和信息长度和重复次数，1千万条信息，记录这几个信息还放得下。同Hash Code且等长就疑似相同，比较一下。相同记录只加1次进hash table，但将重复次数加1。一次扫描以后，已经记录各自的重复次数，进行第二次hash table的处理。用线性时间选择可在O（n）的级别上完成前10条的寻找。分组后每份中的top10必须保证各不相同，可hash来保证，也可直接按hash值的大小来分类。</p>
             
 
         </div>
@@ -249,7 +251,8 @@
         <ul class="post-actions post-action-nav">
             <li class="post-action">
                 
-                    <a class="post-action-btn btn btn--disabled">
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/13/JVM内存管理调优/" data-tooltip="JVM内存管理调优" aria-label="上一篇: JVM内存管理调优">
                 
                     <i class="fa fa-angle-left" aria-hidden="true"></i>
                     <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
@@ -284,7 +287,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/13/如何设计大数据去重/&amp;title=如何设计大数据去重" title="分享到 QQ">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/13/如何设计大数据去重/&amp;title=如何设计大量数据查重" title="分享到 QQ">
                     <i class="fab fa-qq" aria-hidden="true"></i>
                 </a>
             </li>
@@ -342,7 +345,8 @@
         <ul class="post-actions post-action-nav">
             <li class="post-action">
                 
-                    <a class="post-action-btn btn btn--disabled">
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/13/JVM内存管理调优/" data-tooltip="JVM内存管理调优" aria-label="上一篇: JVM内存管理调优">
                 
                     <i class="fa fa-angle-left" aria-hidden="true"></i>
                     <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
@@ -377,7 +381,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/13/如何设计大数据去重/&amp;title=如何设计大数据去重" title="分享到 QQ">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/13/如何设计大数据去重/&amp;title=如何设计大量数据查重" title="分享到 QQ">
                     <i class="fab fa-qq" aria-hidden="true"></i>
                 </a>
             </li>
@@ -426,7 +430,7 @@
             
             
             <li class="share-option">
-                <a class="share-option-btn" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/13/如何设计大数据去重/&amp;title=如何设计大数据去重">
+                <a class="share-option-btn" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/13/如何设计大数据去重/&amp;title=如何设计大量数据查重">
                     <i class="fab fa-qq" aria-hidden="true"></i><span>分享到 QQ</span>
                 </a>
             </li>
