@@ -1,0 +1,595 @@
+
+<!DOCTYPE html>
+<html lang="zh-cn">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Gwon NyeongJin">
+    <title>如何优雅的使用MySQL索引 - Gwon NyeongJin</title>
+    <meta name="author" content="Gwon NyeongJin">
+    
+    
+        <link rel="icon" href="http://yoursite.com/assets/images/author.JPG">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\nMySQL最常用的引擎是MyISAM和innoDB两种，这两种引擎里innoDB因其拥有外键、事物、各类锁等功能所以在生产环境的应用更加广泛。innoDB的索引根据功能划分有单列索引、组合索引，按照性质划分有聚簇索引和非聚簇索引。在编写SQL语句时，使用索引可以大大加快语句执行速度。\nMySQL组成MySQL大概是由以下这些个部分组成：\n\n连接池：MySQL顶层有连接池，这是类似于线程池的池化概念，在并发时进行数据库的操作保证资源利用率。在实际的生产代码中，我们可以通过c3p0等数据源对连接池进行大小设置。\nSQL语句封装层：当SQL语句被读入Mysql中时，有一层封装层用来读取sql语句传给下一层，并在处理之后将结果返回提供给上层，这里做了一层封装层，对于上层来说，把SQL交给这一层最后拿到的是执行结果，其他的部分并不关心，是透明的。\n过滤器：在SQL语句封装层下面是过滤器，过滤器会将分段的语句过滤拆分，并判断语法是否符合，如果有的地方不和语法就会报错返回。\n优化器：再下面是优化器，一条语句究竟用什么索引，怎么用索引，怎么去执行，在这一层会给出执行计划Explain。\n缓存：这其中还有缓存的概念，当一条语句查询完毕后结果会存放在缓存中，如果是同样的语句那么就不会再次执行了，但是需要判断的情况比较多，比如这段缓存的信息被其他的线程写过了要做判断，或者把它当作一种不精确的查询。\n执行引擎：MySQL自带了很多种执行引擎，其中常用的有MyISAM和innoDB两种。执行引擎解决的是文件的设计，这里会设计如何存储数据的文件格式，采用那些数据结构，是B+Tree还是Hash存放、用什么策略读取和写入等都在这里给出。\n文件：数据文件，存放在磁盘上。\n\n\ninnoDB的索引聚簇索引聚簇索引是指在实际的文件存放中，数据的信息是按照聚簇索引的顺序存放的，每一张表中只能有一个聚簇索引。这样说起来很抽象，举个例子，我们让id作为这张表的索引，那么实际的每行数据在文件中的存放顺序是id的顺序，文件中会按照id从1，2，3一直到10000…的顺序存放在磁盘上。如果我们没有id为700的行，此时插入一条id为700的数据，那么整个文件的结构会重组，这一条新数据会被插入在699之后，所有他相关的数据将会移位，来满足数据按照聚簇索引的顺序存放的这个性质。\n或者我们还可以换个角度简单理解。聚簇索引是一种B+Tree结构的索引表，在这张索引表的每个结点上都附带了数据信息，如果插入一条数据的聚簇索引值大于之前的所有索引，那么直接添加在最后，涉及到的改动很小，如果插入在中间那么很容易导致文件大量改动。\n通过聚簇索引，我们可以非常快速的查找到数据，这是他的优点；他的缺点在于插入的改动会导致性能很差，一般这种情况，我们的解决方法是对于每张表都建立一个无业务意义的自增id字段，在插入时按照自增的方式增加id，这样可以避免劣势。我个人认为，这缺点也是为什么innoDB会支持主键自增长的原因。\n非聚簇索引每一张表中只能有一个聚簇索引，但是可以有很多个非聚簇索引。创建非聚簇索引会单独建立一张表，这张表按照B+Tree的数据结构，按照给定的非聚簇索引字段来建立。当我们使用给定的字段查询时会使用到这个索引表，从而提高效率。从原理上来讲，非聚簇索引最后查到数据的聚簇索引。因为聚簇索引一定是表的主键不重复，非聚簇索引查到这个数据的聚簇索引，再到聚簇索引表中查找数据，聚簇索引相当于做了一个跳板。我们在文件中自己创建的索引都是非聚簇索引，无论是组合索引还是单列索引。\n单列索引和组合索引单列索引是指单独的一列作为索引字段，组合索引是指多个列一起作为索引字段。这两者差别不大，组合索引按照第一个字段做B+Tree的结构，在第一个字段相同的时候会按照第二个字段继续做判断，以此类推。值得注意的是，这两种索引，在数据的值重复的时候，都隐含着将主键作为索引进行排列。\n覆盖索引覆盖索引指要查询的select字段包括where的查询条件全都是由索引组成的，被索引覆盖不需要回表。尽量避免查询select *，无法用索引来覆盖。不能再索引中含有通配符开头的like，因为索引查不中。在处理大量数据，比如limit 10000，10的时候用覆盖索引，可以避免回表提高效率。\n组合索引匹配规则\n查找条件全部按顺序匹配组合索引\n查找条件能够最左匹配组合索引\n查找条件是左前缀，这个前缀能最左匹配组合索引。比如查找条件是 A like “a%” ，而组合索引是（A，B，C）\n查找条件的第一个全值匹配，第二个最左匹配\n\n以上四种情况能够使用组合索引，统一的说组合索引满足所有从左开始使用他的查询。\nEXPLAIN执行计划1234567mysql&gt; explain select * from servers;+----+-------------+---------+------+---------------+------+---------+------+------+-------+| id | select_type | table   | type | possible_keys | key  | key_len | ref  | rows | Extra |+----+-------------+---------+------+---------------+------+---------+------+------+-------+|  1 | SIMPLE      | servers | ALL  | NULL          | NULL | NULL    | NULL |    1 | NULL  |+----+-------------+---------+------+---------------+------+---------+------+------+-------+row in set (0.03 sec)\n\nid: 包含一组数字，表示查询中执行select子句或操作表的顺序，id值越大优先级越高，越先被执行\nselect_type: 标记在查询语句中包含的子查询的类型\ntable: 查询的表名\ntype: 查询类型（ALL, index, range, ref, eq_ref, const, system, NULL）\npossible_keys: 表示使用的索引的全部，如果使用的是组合索引的一部分，这里展示全部的组合索引的样子\nkey: 表示使用的索引，如果使用的是组合索引的一部分，这里展示使用的部分\nkey_len: 索引的长度\nrows: 根据查询的结果估算需要读取的行数\nExtra:\nUsing index：使用了覆盖索引\nUsing where：先读取了where的条件再查行，是一种优化\nUsing temporary：需要临时表来存放信息\nUsing filesort：无法利用索引排序\nUsing join buffer：链接的时候没有使用索引，需要优化\n\n\n\nEXPLAIN特性\nEXPLAIN不会告诉你关于触发器、存储过程的信息或用户自定义函数对查询的影响情况\nEXPLAIN不考虑各种Cache\nEXPLAIN不能显示MySQL在执行查询时所作的优化工作\n部分统计信息是估算的，并非精确值\nEXPALIN只能解释SELECT操作，其他操作要重写为SELECT后查看执行计划。\n\n优雅使用索引的技巧\n如果要匹配范围最好把范围放在最后，范围匹配之后的索引都不能用。范围后还有查询条件的SQL语句，会先使用此索引，再把查出来的语句在结果集中线性遍历\n如果是匹配多个单值，而且把多个单值全部列出那么后面的索引说可用的。比如 sex in （0，1），sex只有0，1两种的话后面的查询条件还能使用此索引进行\n组合索引比单列索引需要的空间更多，索引并不是创建的越多越好，一个是会占用空间，另一个是在更新操作时会更新索引表增加负担\n判断字段的选择性，count（col distict）/count（*），尽量找选择性高的数据做索引\n上一条也并不绝对，如果选择性低的字段要经常做索引，也可以加上，放在组合索引首，如果要使用则：IN（m，f）\n对于varchar等，最好使用前缀索引，city（7）。这个具体的长度可以通过选择性来计算获取，先计算整体的选择性，在分个计算看效率\n不能利用前缀索引做orderby和groupby索引，也无法使用前缀索引做覆盖扫描\n多个单列的效果在where中and联合查询的时候没有一个组合索引效果好，多个单列之间并不能配合。只能使用一个单列索引\nOR的效率非常差，因为可能涉及到缓存和合并等操作，尽量使用IN而不是OR\norder by中的字段要和索引一一对应才行，而且同时采用升序或者降序，否则不能利用索引\n索引的第一个字段也可以在where子句中做等值的常量，后几个字段在orderby中做排序。如果where子句中查询的结果不是=的，是范围或者IN则不能使用一个索引\nlimit先用一个嵌套子查询查出来需要的数据，在和原表inner join，最好利用覆盖索引，不能利用的时候select id做嵌套子查询\n\n如何预防SQL慢查询？\n字段类型转换导致不用索引，如字符串类型的不用引号，数字类型的用引号等，这有可能会用不到索引导致全表扫描\nmysql 不支持函数转换，所以字段前面不能加函数，否则这将用不到索引\n不要在字段前面加减运算\n字符串比较长的可以考虑索引一部份减少索引文件大小，提高写入效率\nlike % 在前面用不到索引\n排序请尽量使每个条件是同样的升降\nor 的查询尽量用 union 代替 （Innodb）\n复合索引高选择性的字段排在前面\norder by / group by 字段包括在索引当中减少排序，效率会更高\n尽量规避大事务的 SQL，大事务的 SQL 会影响数据库的并发性能及主从同步\n","dateCreated":"2018-08-14T13:56:56+08:00","dateModified":"2018-08-14T15:14:54+08:00","datePublished":"2018-08-14T13:56:56+08:00","description":"MySQL最常用的引擎是MyISAM和innoDB两种，这两种引擎里innoDB因其拥有外键、事物、各类锁等功能所以在生产环境的应用更加广泛。innoDB的索引根据功能划分有单列索引、组合索引，按照性质划分有聚簇","headline":"如何优雅的使用MySQL索引","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/"}</script>
+    <meta name="description" content="MySQL最常用的引擎是MyISAM和innoDB两种，这两种引擎里innoDB因其拥有外键、事物、各类锁等功能所以在生产环境的应用更加广泛。innoDB的索引根据功能划分有单列索引、组合索引，按照性质划分有聚簇">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="如何优雅的使用MySQL索引">
+<meta property="og:url" content="http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/index.html">
+<meta property="og:site_name" content="Gwon NyeongJin">
+<meta property="og:description" content="MySQL最常用的引擎是MyISAM和innoDB两种，这两种引擎里innoDB因其拥有外键、事物、各类锁等功能所以在生产环境的应用更加广泛。innoDB的索引根据功能划分有单列索引、组合索引，按照性质划分有聚簇">
+<meta property="og:locale" content="zh-cn">
+<meta property="og:image" content="http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/数据库结构.jpg">
+<meta property="og:updated_time" content="2018-08-14T07:14:54.347Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="如何优雅的使用MySQL索引">
+<meta name="twitter:description" content="MySQL最常用的引擎是MyISAM和innoDB两种，这两种引擎里innoDB因其拥有外键、事物、各类锁等功能所以在生产环境的应用更加广泛。innoDB的索引根据功能划分有单列索引、组合索引，按照性质划分有聚簇">
+<meta name="twitter:image" content="http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/数据库结构.jpg">
+<meta name="twitter:creator" content="@tranquilpeak">
+    
+        <link rel="publisher" href="https://plus.google.com/123812884128439"/>
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://yoursite.com/assets/images/author.JPG"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    <link rel="stylesheet" href="/assets/css/style-gseklixh5hopgvsfveh0jwhkvakwdjiuogtfz9jmfqmdxq291r5fz66yjc8c.min.css">
+    <!--STYLES END-->
+    
+
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/ ">Gwon NyeongJin</a>
+    </div>
+    
+        
+            <a  class="header-right-picture "
+                href="#about">
+        
+        
+            <img class="header-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about">
+                    <img class="sidebar-profile-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+                </a>
+                <h4 class="sidebar-profile-name">Gwon NyeongJin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/ "
+                            
+                            title="春山如笑"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">春山如笑</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="火树银花"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">火树银花</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="晓风残月"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">晓风残月</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-archives"
+                            
+                            title="飞鸿印雪"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">飞鸿印雪</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/QuinnNorris" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://weibo.com/u/6556522860" target="_blank" rel="noopener" title="Weibo">
+                    
+                        <i class="sidebar-button-icon fab fa-weibo" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Weibo</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://blog.csdn.net/QuinnNorris" target="_blank" rel="noopener" title="CSDN">
+                    
+                        <i class="sidebar-button-icon fab fa-cuttlefish" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">CSDN</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:sei_qnz2015@126.com" target="_blank" rel="noopener" title="E-mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">E-mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-center">
+    
+        <h1 class="post-title">
+            如何优雅的使用MySQL索引
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2018-08-14T13:56:56+08:00">
+	
+		    8月 14, 2018
+    	
+    </time>
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <!-- excerpt --></p>
+<p>MySQL最常用的引擎是MyISAM和innoDB两种，这两种引擎里innoDB因其拥有外键、事物、各类锁等功能所以在生产环境的应用更加广泛。innoDB的索引根据功能划分有单列索引、组合索引，按照性质划分有聚簇索引和非聚簇索引。在编写SQL语句时，使用索引可以大大加快语句执行速度。</p>
+<h2 id="MySQL组成"><a href="#MySQL组成" class="headerlink" title="MySQL组成"></a>MySQL组成</h2><p>MySQL大概是由以下这些个部分组成：</p>
+<ul>
+<li>连接池：MySQL顶层有连接池，这是类似于线程池的池化概念，在并发时进行数据库的操作保证资源利用率。在实际的生产代码中，我们可以通过c3p0等数据源对连接池进行大小设置。</li>
+<li>SQL语句封装层：当SQL语句被读入Mysql中时，有一层封装层用来读取sql语句传给下一层，并在处理之后将结果返回提供给上层，这里做了一层封装层，对于上层来说，把SQL交给这一层最后拿到的是执行结果，其他的部分并不关心，是透明的。</li>
+<li>过滤器：在SQL语句封装层下面是过滤器，过滤器会将分段的语句过滤拆分，并判断语法是否符合，如果有的地方不和语法就会报错返回。</li>
+<li>优化器：再下面是优化器，一条语句究竟用什么索引，怎么用索引，怎么去执行，在这一层会给出执行计划Explain。</li>
+<li>缓存：这其中还有缓存的概念，当一条语句查询完毕后结果会存放在缓存中，如果是同样的语句那么就不会再次执行了，但是需要判断的情况比较多，比如这段缓存的信息被其他的线程写过了要做判断，或者把它当作一种不精确的查询。</li>
+<li>执行引擎：MySQL自带了很多种执行引擎，其中常用的有MyISAM和innoDB两种。执行引擎解决的是文件的设计，这里会设计如何存储数据的文件格式，采用那些数据结构，是B+Tree还是Hash存放、用什么策略读取和写入等都在这里给出。</li>
+<li>文件：数据文件，存放在磁盘上。</li>
+</ul>
+<p><img src="数据库结构.jpg" alt="数据库结构"></p>
+<h2 id="innoDB的索引"><a href="#innoDB的索引" class="headerlink" title="innoDB的索引"></a>innoDB的索引</h2><h3 id="聚簇索引"><a href="#聚簇索引" class="headerlink" title="聚簇索引"></a>聚簇索引</h3><p><strong>聚簇索引是指在实际的文件存放中，数据的信息是按照聚簇索引的顺序存放的，每一张表中只能有一个聚簇索引。</strong>这样说起来很抽象，举个例子，我们让id作为这张表的索引，那么实际的每行数据在文件中的存放顺序是id的顺序，文件中会按照id从1，2，3一直到10000…的顺序存放在磁盘上。如果我们没有id为700的行，此时插入一条id为700的数据，那么整个文件的结构会重组，这一条新数据会被插入在699之后，所有他相关的数据将会移位，来满足数据按照聚簇索引的顺序存放的这个性质。</p>
+<p>或者我们还可以换个角度简单理解。聚簇索引是一种B+Tree结构的索引表，在这张索引表的每个结点上都附带了数据信息，如果插入一条数据的聚簇索引值大于之前的所有索引，那么直接添加在最后，涉及到的改动很小，如果插入在中间那么很容易导致文件大量改动。</p>
+<p>通过聚簇索引，我们可以非常快速的查找到数据，这是他的优点；他的缺点在于插入的改动会导致性能很差，一般这种情况，我们的解决方法是对于每张表都建立一个无业务意义的自增id字段，在插入时按照自增的方式增加id，这样可以避免劣势。我个人认为，这缺点也是为什么innoDB会支持主键自增长的原因。</p>
+<h3 id="非聚簇索引"><a href="#非聚簇索引" class="headerlink" title="非聚簇索引"></a>非聚簇索引</h3><p>每一张表中只能有一个聚簇索引，但是可以有很多个非聚簇索引。创建非聚簇索引会单独建立一张表，这张表按照B+Tree的数据结构，按照给定的非聚簇索引字段来建立。当我们使用给定的字段查询时会使用到这个索引表，从而提高效率。从原理上来讲，非聚簇索引最后查到数据的聚簇索引。因为聚簇索引一定是表的主键不重复，非聚簇索引查到这个数据的聚簇索引，再到聚簇索引表中查找数据，聚簇索引相当于做了一个跳板。我们在文件中自己创建的索引都是非聚簇索引，无论是组合索引还是单列索引。</p>
+<h3 id="单列索引和组合索引"><a href="#单列索引和组合索引" class="headerlink" title="单列索引和组合索引"></a>单列索引和组合索引</h3><p>单列索引是指单独的一列作为索引字段，组合索引是指多个列一起作为索引字段。这两者差别不大，组合索引按照第一个字段做B+Tree的结构，在第一个字段相同的时候会按照第二个字段继续做判断，以此类推。值得注意的是，这两种索引，在数据的值重复的时候，都隐含着将主键作为索引进行排列。</p>
+<h3 id="覆盖索引"><a href="#覆盖索引" class="headerlink" title="覆盖索引"></a>覆盖索引</h3><p>覆盖索引指要查询的select字段包括where的查询条件全都是由索引组成的，被索引覆盖不需要回表。尽量避免查询select *，无法用索引来覆盖。不能再索引中含有通配符开头的like，因为索引查不中。在处理大量数据，比如limit 10000，10的时候用覆盖索引，可以避免回表提高效率。</p>
+<h2 id="组合索引匹配规则"><a href="#组合索引匹配规则" class="headerlink" title="组合索引匹配规则"></a>组合索引匹配规则</h2><ul>
+<li>查找条件全部按顺序匹配组合索引</li>
+<li>查找条件能够最左匹配组合索引</li>
+<li>查找条件是左前缀，这个前缀能最左匹配组合索引。比如查找条件是 A like “a%” ，而组合索引是（A，B，C）</li>
+<li>查找条件的第一个全值匹配，第二个最左匹配</li>
+</ul>
+<p>以上四种情况能够使用组合索引，统一的说组合索引满足所有从左开始使用他的查询。</p>
+<h2 id="EXPLAIN执行计划"><a href="#EXPLAIN执行计划" class="headerlink" title="EXPLAIN执行计划"></a>EXPLAIN执行计划</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; explain select * from servers;</span><br><span class="line">+----+-------------+---------+------+---------------+------+---------+------+------+-------+</span><br><span class="line">| id | select_type | table   | type | possible_keys | key  | key_len | ref  | rows | Extra |</span><br><span class="line">+----+-------------+---------+------+---------------+------+---------+------+------+-------+</span><br><span class="line">|  1 | SIMPLE      | servers | ALL  | NULL          | NULL | NULL    | NULL |    1 | NULL  |</span><br><span class="line">+----+-------------+---------+------+---------------+------+---------+------+------+-------+</span><br><span class="line">row in set (0.03 sec)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>id: 包含一组数字，表示查询中执行select子句或操作表的顺序，id值越大优先级越高，越先被执行</li>
+<li>select_type: 标记在查询语句中包含的子查询的类型</li>
+<li>table: 查询的表名</li>
+<li>type: 查询类型（ALL, index, range, ref, eq_ref, const, system, NULL）</li>
+<li>possible_keys: 表示使用的索引的全部，如果使用的是组合索引的一部分，这里展示全部的组合索引的样子</li>
+<li>key: 表示使用的索引，如果使用的是组合索引的一部分，这里展示使用的部分</li>
+<li>key_len: 索引的长度</li>
+<li>rows: 根据查询的结果估算需要读取的行数</li>
+<li>Extra:<ul>
+<li>Using index：使用了覆盖索引</li>
+<li>Using where：先读取了where的条件再查行，是一种优化</li>
+<li>Using temporary：需要临时表来存放信息</li>
+<li>Using filesort：无法利用索引排序</li>
+<li>Using join buffer：链接的时候没有使用索引，需要优化</li>
+</ul>
+</li>
+</ul>
+<h3 id="EXPLAIN特性"><a href="#EXPLAIN特性" class="headerlink" title="EXPLAIN特性"></a>EXPLAIN特性</h3><ul>
+<li>EXPLAIN不会告诉你关于触发器、存储过程的信息或用户自定义函数对查询的影响情况</li>
+<li>EXPLAIN不考虑各种Cache</li>
+<li>EXPLAIN不能显示MySQL在执行查询时所作的优化工作</li>
+<li>部分统计信息是估算的，并非精确值</li>
+<li>EXPALIN只能解释SELECT操作，其他操作要重写为SELECT后查看执行计划。</li>
+</ul>
+<h2 id="优雅使用索引的技巧"><a href="#优雅使用索引的技巧" class="headerlink" title="优雅使用索引的技巧"></a>优雅使用索引的技巧</h2><ul>
+<li>如果要匹配范围最好把范围放在最后，范围匹配之后的索引都不能用。范围后还有查询条件的SQL语句，会先使用此索引，再把查出来的语句在结果集中线性遍历</li>
+<li>如果是匹配多个单值，而且把多个单值全部列出那么后面的索引说可用的。比如 sex in （0，1），sex只有0，1两种的话后面的查询条件还能使用此索引进行</li>
+<li>组合索引比单列索引需要的空间更多，索引并不是创建的越多越好，一个是会占用空间，另一个是在更新操作时会更新索引表增加负担</li>
+<li>判断字段的选择性，count（col distict）/count（*），尽量找选择性高的数据做索引</li>
+<li>上一条也并不绝对，如果选择性低的字段要经常做索引，也可以加上，放在组合索引首，如果要使用则：IN（m，f）</li>
+<li>对于varchar等，最好使用前缀索引，city（7）。这个具体的长度可以通过选择性来计算获取，先计算整体的选择性，在分个计算看效率</li>
+<li>不能利用前缀索引做orderby和groupby索引，也无法使用前缀索引做覆盖扫描</li>
+<li>多个单列的效果在where中and联合查询的时候没有一个组合索引效果好，多个单列之间并不能配合。只能使用一个单列索引</li>
+<li>OR的效率非常差，因为可能涉及到缓存和合并等操作，尽量使用IN而不是OR</li>
+<li>order by中的字段要和索引一一对应才行，而且同时采用升序或者降序，否则不能利用索引</li>
+<li>索引的第一个字段也可以在where子句中做等值的常量，后几个字段在orderby中做排序。如果where子句中查询的结果不是=的，是范围或者IN则不能使用一个索引</li>
+<li>limit先用一个嵌套子查询查出来需要的数据，在和原表inner join，最好利用覆盖索引，不能利用的时候select id做嵌套子查询</li>
+</ul>
+<h2 id="如何预防SQL慢查询？"><a href="#如何预防SQL慢查询？" class="headerlink" title="如何预防SQL慢查询？"></a>如何预防SQL慢查询？</h2><ul>
+<li>字段类型转换导致不用索引，如字符串类型的不用引号，数字类型的用引号等，这有可能会用不到索引导致全表扫描</li>
+<li>mysql 不支持函数转换，所以字段前面不能加函数，否则这将用不到索引</li>
+<li>不要在字段前面加减运算</li>
+<li>字符串比较长的可以考虑索引一部份减少索引文件大小，提高写入效率</li>
+<li>like % 在前面用不到索引</li>
+<li>排序请尽量使每个条件是同样的升降</li>
+<li>or 的查询尽量用 union 代替 （Innodb）</li>
+<li>复合索引高选择性的字段排在前面</li>
+<li>order by / group by 字段包括在索引当中减少排序，效率会更高</li>
+<li>尽量规避大事务的 SQL，大事务的 SQL 会影响数据库的并发性能及主从同步</li>
+</ul>
+            
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/13/JVM内存管理调优/" data-tooltip="JVM内存管理调优" aria-label="下一篇: JVM内存管理调优">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/&amp;title=如何优雅的使用MySQL索引" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="gitment"></div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2018 Gwon NyeongJin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/13/JVM内存管理调优/" data-tooltip="JVM内存管理调优" aria-label="下一篇: JVM内存管理调优">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/&amp;title=如何优雅的使用MySQL索引" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+    <i id="btn-close-shareoptions" class="fa fa-times"></i>
+    <ul class="share-options">
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/">
+                    <i class="fab fa-weibo" aria-hidden="true"></i><span>分享到 Weibo</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/&amp;title=如何优雅的使用MySQL索引">
+                    <i class="fab fa-qq" aria-hidden="true"></i><span>分享到 QQ</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/">
+                    <i class="fa fa-star" aria-hidden="true"></i><span>分享到 Qzone</span>
+                </a>
+            </li>
+        
+    </ul>
+</div>
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+            <h4 id="about-card-name">Gwon NyeongJin</h4>
+        
+            <div id="about-card-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>student,ECNU</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                ShangHai,China
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/cover.jpg');"></div>
+        <!--SCRIPTS-->
+<script src="/assets/js/script-w92hbokc213ea69hftijqvxc1viotvpgnjvc4eyqwabobtvt4gyxbn08yj5r.min.js"></script>
+<!--SCRIPTS END-->
+
+    
+        <script type="text/javascript">
+            (function() {
+                function render() {
+                    new Gitment({
+                        id: 'http://yoursite.com/2018/08/14/如何优雅的使用MySQL索引/',
+                        owner: 'QuinnNorris',
+                        repo: 'QuinnNorris.github.io',
+                        oauth: {
+                            client_id: '0e7c41f03dfb1c28ea35',
+                            client_secret: '3220af0710c19324499245a612c05094f6ee3321',
+                        }
+                    }).render('gitment');
+                }
+                var gc = document.createElement('script');
+                gc.type = 'text/javascript';
+                gc.src = '//imsun.github.io/gitment/dist/gitment.browser.js';
+                gc.charset = 'UTF-8';
+                gc.onload = render;
+                gc.async = true;
+                document.querySelector('body').appendChild(gc);
+                var gcs = document.createElement('link');
+                gcs.href = '//imsun.github.io/gitment/style/default.css';
+                gcs.type = 'text/css';
+                gcs.rel = 'stylesheet';
+                gcs.media = 'screen,print';
+                document.querySelector('head').appendChild(gcs);
+            })();
+	    </script>
+    
+
+
+
+    </body>
+</html>
