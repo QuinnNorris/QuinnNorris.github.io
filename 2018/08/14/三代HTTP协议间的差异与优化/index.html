@@ -1,0 +1,571 @@
+
+<!DOCTYPE html>
+<html lang="zh-cn">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Gwon NyeongJin">
+    <title>三代HTTP协议间的差异与优化 - Gwon NyeongJin</title>
+    <meta name="author" content="Gwon NyeongJin">
+    
+    
+        <link rel="icon" href="http://yoursite.com/assets/images/author.JPG">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\n目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这里我们探讨一下HTTP的1.0、1.1、2.0这三个版本的差异和升级后对前一代的优化情况。\nHTTP1.0 与 HTTP1.1 的区别增加方法增加了很多请求方法，1.0中只有POST、GET，增加了DELETE、PUT、HEAD等，完善了restful风格的编写问题。其中HEAD可以不获取响应体，比如我们要下载一个资源，我们可以先通过HEAD在响应头查看一下具体下载的内容有多大，做一些空间的分配等操作。\nkeep-alive加入了keep-alive的概念，在TCP连接完成后不会立刻释放连接，而是维持一段时间，这段时间中如果出现新的请求则复用之前的通道，节省资源。HTTP 1.0需要使用keep-alive参数来告知服务器端要建立一个长连接，而HTTP1.1默认支持长连接。HTTP是基于TCP/IP协议的，创建一个TCP连接是需要经过三次握手的,有一定的开销，如果每次通讯都要重新建立连接的话，对性能有影响。因此最好能维持一个长连接，可以用个长连接来发多个请求。\n请求头增加host站点由于HTTP 1.0不支持Host请求头字段，WEB浏览器无法使用主机头名来明确表示要访问服务器上的哪个WEB站点，这样就无法使用WEB服务器在同一个IP地址和端口号上配置多个虚拟WEB站点。在HTTP 1.1中增加Host请求头字段后，WEB浏览器可以使用主机头名来明确表示要访问服务器上的哪个WEB站点，这才实现了在一台WEB服务器上可以在同一个IP地址和端口号上使用不同的主机名来创建多个虚拟WEB站点。\nHTTP1.1 与 HTTP2.0 的区别服务器推送意思是说，当我们对支持HTTP2.0的web server请求数据的时候，服务器会顺便把一些客户端需要的资源一起推送到客户端，免得客户端再次创建连接发送请求到服务器端获取。这种方式非常合适加载静态资源。服务器端推送的这些资源其实存在客户端的某处地方，客户端直接从本地加载这些资源就可以了，不用走网络，速度自然是快很多的。\n二进制协议HTTP1.1不支持header数据的压缩，HTTP2.0使用HPACK算法对header的数据进行压缩，这样数据体积小了，在网络上传输就会更快。HTTP/1.1 版的头信息肯定是文本（ASCII编码），数据体可以是文本，也可以是二进制。HTTP/2 则是一个彻底的二进制协议，头信息和数据体都是二进制，并且统称为”帧”（frame）：头信息帧和数据帧。二进制协议的一个好处是，可以定义额外的帧。HTTP/2 定义了近十种帧，为将来的高级应用打好了基础。如果使用文本实现这种功能，解析数据将会变得非常麻烦，二进制解析则方便得多。\n多工/多路复用在HTTP1.1协议中客户端在同一时间，针对同一域名下的请求有一定数量限制。超过限制数目的请求会被阻塞。这也是为何一些站点会有多个静态资源CDN域名的原因之一，目的就是变相的解决浏览器针对同一域名的请求限制阻塞问题。多路复用允许同时通过单一的HTTP2.0连接发起多重的请求-响应消息。\nHTTP报文头\n请求报文请求行：请求方法、url、版本 \n应答报文应答行：版本、状态、描述 \n请求头、应答头：kv的n个参数 \n请求体、应答体：存放数据\n\n123456789101112131415161718192021222324252627请求报文----------------------------------------------请求行：POST /index.html HTTP/1.1请求头：HOST: www.XXX.comUser-Agent: Mozilla/5.0(Windows NT 6.1;rv:15.0) Firefox/15.0请求体：Username=admin&amp;password=admin 响应报文----------------------------------------------应答行：HTTP/1.1 200 OK应答头：Content-Encoding: gzipContent-Type: text/html;charset=utf-8应答体：&lt;!DOCTYPE html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;    &lt;meta charset=&quot;UTF-8&quot; /&gt;    &lt;title&gt;Document&lt;/title&gt;&lt;/head&gt;&lt;body&gt;    &lt;p&gt;this is http response&lt;/p&gt;&lt;/body&gt;\n响应码\n1XX：信息提示。表示请求已被服务器接受，但需要继续处理，范围为100~101。\n2XX：请求成功。服务器成功处理了请求。范围为200~206。\n3XX：客户端重定向。重定向状态码用于告诉客户端浏览器，它们访问的资源已被移动，并告诉客户端新的资源位置。客户端收到重定向会重新对新资源发起请求。范围为300~305。\n4XX：客户端信息错误。客户端可能发送了服务器无法处理的东西，比如请求的格式错误，或者请求了一个不存在的资源。范围为400~415。\n5XX：服务器出错。客户端发送了有效的请求，但是服务器自身出现错误，比如Web程序运行出错。范围是500~505。\n\n200：客户端请求成功。\n\n302：重定向。\n404：请求资源不存在。\n400：请求语法错误，服务器无法理解。\n403：服务器收到请求，但拒绝提供服务。\n500：服务器内部错误。\n503：服务器当前不能处理客户端请求，可能需要一段时间后才能恢复正常。\n\ncookie和session的区别Cookie是一种存在的数据，session是一种概念。一般我们用cookie实现session。\nCookie技术是客户端认证的解决方案，Cookie就是由服务器发给客户端的特殊信息，而这些信息以文本文件的方式存放在客户端，然后客户端每次向服务器发送请求的时候都会带上这些特殊的信息。除了使用Cookie，Web应用程序中还经常使用Session来记录客户端状态。Session是服务器端使用的一种记录客户端状态的机制，使用上比Cookie简单一些，相应的也增加了服务器的存储压力。\nPOST和GET的请求差别从本质上来讲POST和GET都是http请求，底层都是TCP连接。他们的不同是在语义上定义的。POST用来更新信息，是动作操作，GET是获取资源是类似于搜索select的操作。\nget:\n\nGET 方法请求的数据会直接存放在URL里，会看到的很明显\nGET 请求可被缓存\nGET 请求保留在浏览器历史记录中、可被收藏为书签\nGET 请求有长度限制\nGET 请求只应当用于取回数据\n\npost：\n\nPOST 将数据存放在请求体中\nPOST 请求不会被缓存\nPOST 请求不会保留在浏览器历史记录中、不能被收藏为书签\nPOST 请求对数据长度没有要求\nPOST 用来更新资源\n\nhead:\n\nhead和get很类似，但是head没有响应体，所以作用就是从相应的头部获取一些信息\n比如下载前先获取一下，预估下载的内容有多大\n\nHTTP和HTTPS的差别HTTP协议被用于在Web浏览器和网站服务器之间传递信息，HTTP协议以明文方式发送内容，不提供任何方式的数据加密，如果攻击者截取了Web浏览器和网站服务器之间的传输报文，就可以直接读懂其中的信息，因此，HTTP协议不适合传输一些敏感信息，比如：信用卡号、密码等支付信息。为了解决HTTP协议的这一缺陷，需要使用另一种协议：安全套接字层超文本传输协议HTTPS，为了数据传输的安全，HTTPS在HTTP的基础上加入了SSL协议，SSL依靠证书来验证服务器的身份，并为浏览器和服务器之间的通信加密。","dateCreated":"2018-08-14T15:15:56+08:00","dateModified":"2018-08-14T16:19:34+08:00","datePublished":"2018-08-14T15:15:56+08:00","description":"目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这","headline":"三代HTTP协议间的差异与优化","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/"}</script>
+    <meta name="description" content="目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="三代HTTP协议间的差异与优化">
+<meta property="og:url" content="http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/index.html">
+<meta property="og:site_name" content="Gwon NyeongJin">
+<meta property="og:description" content="目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这">
+<meta property="og:locale" content="zh-cn">
+<meta property="og:updated_time" content="2018-08-14T08:19:34.654Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="三代HTTP协议间的差异与优化">
+<meta name="twitter:description" content="目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这">
+<meta name="twitter:creator" content="@tranquilpeak">
+    
+        <link rel="publisher" href="https://plus.google.com/123812884128439"/>
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://yoursite.com/assets/images/author.JPG"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    <link rel="stylesheet" href="/assets/css/style-gseklixh5hopgvsfveh0jwhkvakwdjiuogtfz9jmfqmdxq291r5fz66yjc8c.min.css">
+    <!--STYLES END-->
+    
+
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/ ">Gwon NyeongJin</a>
+    </div>
+    
+        
+            <a  class="header-right-picture "
+                href="#about">
+        
+        
+            <img class="header-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about">
+                    <img class="sidebar-profile-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+                </a>
+                <h4 class="sidebar-profile-name">Gwon NyeongJin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/ "
+                            
+                            title="春山如笑"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">春山如笑</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="火树银花"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">火树银花</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="晓风残月"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">晓风残月</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-archives"
+                            
+                            title="飞鸿印雪"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">飞鸿印雪</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/QuinnNorris" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://weibo.com/u/6556522860" target="_blank" rel="noopener" title="Weibo">
+                    
+                        <i class="sidebar-button-icon fab fa-weibo" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Weibo</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://blog.csdn.net/QuinnNorris" target="_blank" rel="noopener" title="CSDN">
+                    
+                        <i class="sidebar-button-icon fab fa-cuttlefish" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">CSDN</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:sei_qnz2015@126.com" target="_blank" rel="noopener" title="E-mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">E-mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-center">
+    
+        <h1 class="post-title">
+            三代HTTP协议间的差异与优化
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2018-08-14T15:15:56+08:00">
+	
+		    8月 14, 2018
+    	
+    </time>
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <!-- excerpt --></p>
+<p>目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这里我们探讨一下HTTP的1.0、1.1、2.0这三个版本的差异和升级后对前一代的优化情况。</p>
+<h2 id="HTTP1-0-与-HTTP1-1-的区别"><a href="#HTTP1-0-与-HTTP1-1-的区别" class="headerlink" title="HTTP1.0 与 HTTP1.1 的区别"></a>HTTP1.0 与 HTTP1.1 的区别</h2><h3 id="增加方法"><a href="#增加方法" class="headerlink" title="增加方法"></a>增加方法</h3><p>增加了很多请求方法，1.0中只有POST、GET，增加了DELETE、PUT、HEAD等，完善了restful风格的编写问题。其中HEAD可以不获取响应体，比如我们要下载一个资源，我们可以先通过HEAD在响应头查看一下具体下载的内容有多大，做一些空间的分配等操作。</p>
+<h3 id="keep-alive"><a href="#keep-alive" class="headerlink" title="keep-alive"></a>keep-alive</h3><p>加入了keep-alive的概念，在TCP连接完成后不会立刻释放连接，而是维持一段时间，这段时间中如果出现新的请求则复用之前的通道，节省资源。HTTP 1.0需要使用keep-alive参数来告知服务器端要建立一个长连接，而HTTP1.1默认支持长连接。HTTP是基于TCP/IP协议的，创建一个TCP连接是需要经过三次握手的,有一定的开销，如果每次通讯都要重新建立连接的话，对性能有影响。因此最好能维持一个长连接，可以用个长连接来发多个请求。</p>
+<h3 id="请求头增加host站点"><a href="#请求头增加host站点" class="headerlink" title="请求头增加host站点"></a>请求头增加host站点</h3><p>由于HTTP 1.0不支持Host请求头字段，WEB浏览器无法使用主机头名来明确表示要访问服务器上的哪个WEB站点，这样就无法使用WEB服务器在同一个IP地址和端口号上配置多个虚拟WEB站点。在HTTP 1.1中增加Host请求头字段后，WEB浏览器可以使用主机头名来明确表示要访问服务器上的哪个WEB站点，这才实现了在一台WEB服务器上可以在同一个IP地址和端口号上使用不同的主机名来创建多个虚拟WEB站点。</p>
+<h2 id="HTTP1-1-与-HTTP2-0-的区别"><a href="#HTTP1-1-与-HTTP2-0-的区别" class="headerlink" title="HTTP1.1 与 HTTP2.0 的区别"></a>HTTP1.1 与 HTTP2.0 的区别</h2><h3 id="服务器推送"><a href="#服务器推送" class="headerlink" title="服务器推送"></a>服务器推送</h3><p>意思是说，当我们对支持HTTP2.0的web server请求数据的时候，服务器会顺便把一些客户端需要的资源一起推送到客户端，免得客户端再次创建连接发送请求到服务器端获取。这种方式非常合适加载静态资源。服务器端推送的这些资源其实存在客户端的某处地方，客户端直接从本地加载这些资源就可以了，不用走网络，速度自然是快很多的。</p>
+<h3 id="二进制协议"><a href="#二进制协议" class="headerlink" title="二进制协议"></a>二进制协议</h3><p>HTTP1.1不支持header数据的压缩，HTTP2.0使用HPACK算法对header的数据进行压缩，这样数据体积小了，在网络上传输就会更快。HTTP/1.1 版的头信息肯定是文本（ASCII编码），数据体可以是文本，也可以是二进制。HTTP/2 则是一个彻底的二进制协议，头信息和数据体都是二进制，并且统称为”帧”（frame）：头信息帧和数据帧。二进制协议的一个好处是，可以定义额外的帧。HTTP/2 定义了近十种帧，为将来的高级应用打好了基础。如果使用文本实现这种功能，解析数据将会变得非常麻烦，二进制解析则方便得多。</p>
+<h3 id="多工-多路复用"><a href="#多工-多路复用" class="headerlink" title="多工/多路复用"></a>多工/多路复用</h3><p>在HTTP1.1协议中客户端在同一时间，针对同一域名下的请求有一定数量限制。超过限制数目的请求会被阻塞。这也是为何一些站点会有多个静态资源CDN域名的原因之一，目的就是变相的解决浏览器针对同一域名的请求限制阻塞问题。多路复用允许同时通过单一的HTTP2.0连接发起多重的请求-响应消息。</p>
+<h2 id="HTTP报文头"><a href="#HTTP报文头" class="headerlink" title="HTTP报文头"></a>HTTP报文头</h2><ul>
+<li>请求报文请求行：请求方法、url、版本 </li>
+<li>应答报文应答行：版本、状态、描述 </li>
+<li>请求头、应答头：kv的n个参数 </li>
+<li>请求体、应答体：存放数据</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">请求报文</span><br><span class="line">----------------------------------------------</span><br><span class="line">请求行：</span><br><span class="line">POST /index.html HTTP/1.1</span><br><span class="line">请求头：</span><br><span class="line">HOST: www.XXX.com</span><br><span class="line">User-Agent: Mozilla/5.0(Windows NT 6.1;rv:15.0) Firefox/15.0</span><br><span class="line">请求体：</span><br><span class="line">Username=admin&amp;password=admin</span><br><span class="line"> </span><br><span class="line">响应报文</span><br><span class="line">----------------------------------------------</span><br><span class="line">应答行：</span><br><span class="line">HTTP/1.1 200 OK</span><br><span class="line">应答头：</span><br><span class="line">Content-Encoding: gzip</span><br><span class="line">Content-Type: text/html;charset=utf-8</span><br><span class="line">应答体：</span><br><span class="line">&lt;!DOCTYPE html&gt;</span><br><span class="line">&lt;html lang=&quot;en&quot;&gt;</span><br><span class="line">&lt;head&gt;</span><br><span class="line">    &lt;meta charset=&quot;UTF-8&quot; /&gt;</span><br><span class="line">    &lt;title&gt;Document&lt;/title&gt;</span><br><span class="line">&lt;/head&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line">    &lt;p&gt;this is http response&lt;/p&gt;</span><br><span class="line">&lt;/body&gt;</span><br></pre></td></tr></table></figure>
+<h2 id="响应码"><a href="#响应码" class="headerlink" title="响应码"></a>响应码</h2><ul>
+<li>1XX：信息提示。表示请求已被服务器接受，但需要继续处理，范围为100~101。</li>
+<li>2XX：请求成功。服务器成功处理了请求。范围为200~206。</li>
+<li>3XX：客户端重定向。重定向状态码用于告诉客户端浏览器，它们访问的资源已被移动，并告诉客户端新的资源位置。客户端收到重定向会重新对新资源发起请求。范围为300~305。</li>
+<li>4XX：客户端信息错误。客户端可能发送了服务器无法处理的东西，比如请求的格式错误，或者请求了一个不存在的资源。范围为400~415。</li>
+<li><p>5XX：服务器出错。客户端发送了有效的请求，但是服务器自身出现错误，比如Web程序运行出错。范围是500~505。</p>
+</li>
+<li><p>200：客户端请求成功。</p>
+</li>
+<li>302：重定向。</li>
+<li>404：请求资源不存在。</li>
+<li>400：请求语法错误，服务器无法理解。</li>
+<li>403：服务器收到请求，但拒绝提供服务。</li>
+<li>500：服务器内部错误。</li>
+<li>503：服务器当前不能处理客户端请求，可能需要一段时间后才能恢复正常。</li>
+</ul>
+<h2 id="cookie和session的区别"><a href="#cookie和session的区别" class="headerlink" title="cookie和session的区别"></a>cookie和session的区别</h2><p>Cookie是一种存在的数据，session是一种概念。一般我们用cookie实现session。</p>
+<p>Cookie技术是客户端认证的解决方案，Cookie就是由服务器发给客户端的特殊信息，而这些信息以文本文件的方式存放在客户端，然后客户端每次向服务器发送请求的时候都会带上这些特殊的信息。除了使用Cookie，Web应用程序中还经常使用Session来记录客户端状态。Session是服务器端使用的一种记录客户端状态的机制，使用上比Cookie简单一些，相应的也增加了服务器的存储压力。</p>
+<h2 id="POST和GET的请求差别"><a href="#POST和GET的请求差别" class="headerlink" title="POST和GET的请求差别"></a>POST和GET的请求差别</h2><p>从本质上来讲POST和GET都是http请求，底层都是TCP连接。他们的不同是在语义上定义的。POST用来更新信息，是动作操作，GET是获取资源是类似于搜索select的操作。</p>
+<p>get:</p>
+<ul>
+<li>GET 方法请求的数据会直接存放在URL里，会看到的很明显</li>
+<li>GET 请求可被缓存</li>
+<li>GET 请求保留在浏览器历史记录中、可被收藏为书签</li>
+<li>GET 请求有长度限制</li>
+<li>GET 请求只应当用于取回数据</li>
+</ul>
+<p>post：</p>
+<ul>
+<li>POST 将数据存放在请求体中</li>
+<li>POST 请求不会被缓存</li>
+<li>POST 请求不会保留在浏览器历史记录中、不能被收藏为书签</li>
+<li>POST 请求对数据长度没有要求</li>
+<li>POST 用来更新资源</li>
+</ul>
+<p>head:</p>
+<ul>
+<li>head和get很类似，但是head没有响应体，所以作用就是从相应的头部获取一些信息</li>
+<li>比如下载前先获取一下，预估下载的内容有多大</li>
+</ul>
+<h2 id="HTTP和HTTPS的差别"><a href="#HTTP和HTTPS的差别" class="headerlink" title="HTTP和HTTPS的差别"></a>HTTP和HTTPS的差别</h2><p>HTTP协议被用于在Web浏览器和网站服务器之间传递信息，HTTP协议以明文方式发送内容，不提供任何方式的数据加密，如果攻击者截取了Web浏览器和网站服务器之间的传输报文，就可以直接读懂其中的信息，因此，HTTP协议不适合传输一些敏感信息，比如：信用卡号、密码等支付信息。为了解决HTTP协议的这一缺陷，需要使用另一种协议：安全套接字层超文本传输协议HTTPS，为了数据传输的安全，HTTPS在HTTP的基础上加入了SSL协议，SSL依靠证书来验证服务器的身份，并为浏览器和服务器之间的通信加密。</p>
+            
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/14/如何优雅的使用MySQL索引/" data-tooltip="如何优雅的使用MySQL索引" aria-label="下一篇: 如何优雅的使用MySQL索引">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Share this post">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/&amp;title=三代HTTP协议间的差异与优化" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Back to top">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="gitment"></div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2018 Gwon NyeongJin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/14/如何优雅的使用MySQL索引/" data-tooltip="如何优雅的使用MySQL索引" aria-label="下一篇: 如何优雅的使用MySQL索引">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Share this post">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/&amp;title=三代HTTP协议间的差异与优化" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Back to top">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+    <i id="btn-close-shareoptions" class="fa fa-times"></i>
+    <ul class="share-options">
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/">
+                    <i class="fab fa-weibo" aria-hidden="true"></i><span>分享到 Weibo</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/&amp;title=三代HTTP协议间的差异与优化">
+                    <i class="fab fa-qq" aria-hidden="true"></i><span>分享到 QQ</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/">
+                    <i class="fa fa-star" aria-hidden="true"></i><span>分享到 Qzone</span>
+                </a>
+            </li>
+        
+    </ul>
+</div>
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+            <h4 id="about-card-name">Gwon NyeongJin</h4>
+        
+            <div id="about-card-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>student,ECNU</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                ShangHai,China
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/cover.jpg');"></div>
+        <!--SCRIPTS-->
+<script src="/assets/js/script-w92hbokc213ea69hftijqvxc1viotvpgnjvc4eyqwabobtvt4gyxbn08yj5r.min.js"></script>
+<!--SCRIPTS END-->
+
+    
+        <script type="text/javascript">
+            (function() {
+                function render() {
+                    new Gitment({
+                        id: 'http://yoursite.com/2018/08/14/三代HTTP协议间的差异与优化/',
+                        owner: 'QuinnNorris',
+                        repo: 'QuinnNorris.github.io',
+                        oauth: {
+                            client_id: '0e7c41f03dfb1c28ea35',
+                            client_secret: '3220af0710c19324499245a612c05094f6ee3321',
+                        }
+                    }).render('gitment');
+                }
+                var gc = document.createElement('script');
+                gc.type = 'text/javascript';
+                gc.src = '//imsun.github.io/gitment/dist/gitment.browser.js';
+                gc.charset = 'UTF-8';
+                gc.onload = render;
+                gc.async = true;
+                document.querySelector('body').appendChild(gc);
+                var gcs = document.createElement('link');
+                gcs.href = '//imsun.github.io/gitment/style/default.css';
+                gcs.type = 'text/css';
+                gcs.rel = 'stylesheet';
+                gcs.media = 'screen,print';
+                document.querySelector('head').appendChild(gcs);
+            })();
+	    </script>
+    
+
+
+
+    </body>
+</html>
