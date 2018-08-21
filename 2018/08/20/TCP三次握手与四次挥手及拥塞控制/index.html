@@ -1,0 +1,583 @@
+
+<!DOCTYPE html>
+<html lang="zh-cn">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Gwon NyeongJin">
+    <title>TCP三次握手与四次挥手及拥塞控制 - Gwon NyeongJin</title>
+    <meta name="author" content="Gwon NyeongJin">
+    
+    
+        <link rel="icon" href="http://yoursite.com/assets/images/author.JPG">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\nTCP处于7层结构的第四层，这是一个比较关键的位置，上三层是封装的应用，下三层是相对基础的传输。TCP在这一层承担了为“用下层的传输机制打造一套传输方式为上层提供安全的传输”的任务。其中我们关注较多的就是TCP的三次握手与四次挥手及拥塞控制的方式。\nOSI七层结构\n可以看出，OSI中最受关注的就是网络层、传输层和应用层。物理层负责比特流的传输，一般地，我们不关心这一层的实现情况。数据链路层是负责解释物理层传输的比特流，\nOSI结构的封装特点OSI结构保证了多台服务器间层与层的对应关系、单台服务器间各层的透明关系。\n比如两台机器A和B，在任何时刻A的任意一层比如网络层都直接对应于B的网络层。对于A和B的两个网络层来说，他们认为自己是直接和对面的网络层“交流”的。实际上从物理上来看，经历了A的数据从网络层到数据链路层再到物理层，再传输到B，再从物理层到数据链路层到网络层的流程。但是实际的操作对于两方的网络层并不可见，OSI结构中各层之间进行了封装，上层不关心下层具体如何实现，只需要“调用函数”即可，耦合度低。\n局域网与互联网的概念差异局域网就是在固定的一个地理区域内由2台以上的电脑用网线和其他网络设备搭建而成的一个封闭的计算机组。局域网内部可以互相访问，局域网内部会给每个机器分配内部的IP，局域网也常常被叫做内网。城域网、广域网只是局域网在范围上的扩大，这里不做讨论。互联网是多个局域网的集合，如果我们想要和外面的世界（其他的局域网系统）互联，需要路由器和互联网交换数据，互联网也有一个全球统一的IP，这个IP是外网IP和局域网的内网IP是两个东西，我们称互联网为外网。我们和外部网络链接依靠的是外网IP。我国的网络只是算是广域网，运营商将广域网的IP和互联网的IP会做一个映射。\nARP、MAC与IP的概念差异对于任意一台机器而言，在外网上他的32位IPv4地址是唯一的但不是固定的。因为IP有限而且要全球唯一，所以供应商会在他的IP池中保留闲置没有使用的IP，当机器联网则为其分配IP，所以每次联网时机器的IP可能不同。这样会导致一个问题，如果IP并不是标识某一个机器id的作用，那么在分配IP时如何确认是哪一台机器需要被分配呢？此处使用了MAC地址的概念，48位MAC地址是物理地址，在机器出场时就将其烧到网卡中，除非更换网卡否则MAC地址不变。在开机分配IP时通过ARP(地址协议解析)的方法传输报文将IP与MAC关联起来，ARP协议实现任意网络层地址到任意物理地址的转换。\n那么MAC地址真的能保证全世界唯一么？不能。MAC地址是由48位十六进制字符串组成的，前24位标示不同厂商的代码，也称为唯一的标示符。后24位是由各厂商自行分配的，称为拓展标示符。虽然容量很大，但是还是存在理论重复的可能。但是两点确保了不会因为唯一性出错。\n\n外网IP分配到局域网，局域网分配子网时通过ARP映射MAC，所以只要确保局域网内部MAC不重复即可\n如果局域网内部MAC发生了重复，ARP可以将重复的MAC做一些改动，来避免重复，因为我们通过IP映射MAC时读取的是ARP上缓存的MAC信息，并不会到硬件上读取，所以只要改变了缓存的数据即可\n\n综上所述我们得出结论，在任何时刻MAC地址都能满足局域网唯一，在某一个时刻IP地址都能满足全球唯一。但是实际上这两种概念是有些重复的，他们都是作为一种标识，为什么需要这两者呢？\n\n为什么有了IP还有MAC？ MAC早于IP出现，而且不一定所有的网络都使用IP协议，所以MAC存在是有必要的\n为什么有了MAC还有IP？ 不同厂商的MAC格式有很大不同，用各类MAC来标识不规范，而且MAC本身没有意义，只是表示地址，而IP经过划分概念清晰\n为什么OSI中的IP层要映射到MAC，不用MAC不行么？ IP处于网络层，MAC处于数据链路层，OSI中各层间是解耦透明的，IP并不关心下层如何实现这种标识的概念，用MAC地址是合理的\n\nTCP和UDP区别UDP特点\nUDP只是在IP协议数据报的基础上增加了一点差错检测，复用的功能，所以功能很有限，实际应用也很有限\nUDP是无连接的，接收方并不会阻塞等待接收\nUDP和IP一样是不可靠的，数据包可能会丢失或者出错\n相比较TCP更快速，但是不稳定，比如在视频等场合，允许数据丢失，但是要求速度快\nUDP支持一对一，一对多，多对多等通信方式\n\nTCP特点\nTCP是面向连接的，在进行TCP传输之前会进行三次握手确保数据可靠\n同样，结束的时候也会进行四次挥手，确保传输结束，交换机是双全工通信\nTCP是点到点的通信\n\n三次握手看到过一个题目：“如何利用UDP实现可靠连接”。个人认为，这道题目的考察点在于TCP的三次握手。因为我们知道TCP是使用不可靠的IP协议完成了可靠的传输，而UDP是IP的一种简单包装。我们用UDP实现三次握手，也是一个可靠的传输了。这道题目考察点很深刻，真正理解网络的同学才能理解考官的出题意图。\n\n\n客户端和服务端打开连接，服务端进入监听模式Listen\n客户端向服务端发送消息，SYN=1，ACK=0，seq=x（本次服务开始的初始序号），进入SYN-SENT\n服务端接收到消息，向客户端发送SYN=1，ACK=1，seq=y（服务端初始序号），ack=x+1（表示希望客户端下一个从x+1开始发送），进入SYN-RCVD\n客户端接受到回执，向服务端再发送SYN=1，ACK=1，seq=x+1（开始发送x+1），ack=y+1（希望对方下一个发送y+1），进入完成状态\n服务端收到消息也进入完成状态\n\n四次挥手\n\n客户端先进入关闭状态，发送请求FIN=1，ACK=0，seq=u（u-1是最后发送给服务端的序号），状态变为FIN-WAIT1\n服务端接收到请求，通知响应的服务即将关闭，也进入关闭状态，发送FIN=0，ACK=1，seq=w（服务端向客户端发送的最后一个序号），ack=u+1，进入CLOSE-WAIT状态等待其他服务的关闭\n其他服务关闭后，且客户端没有重发请求，服务端再次发送一条，FIN=1，ACK=1，seq=v，ack=u+1，进入LAST-ACK状态\n客户端接受到消息之后，会发送一条消息FIN=0，ACK=1，seq=u+1，ack=v+1表示确认关闭，之后经过一段时间再关闭，因为如果直接关闭，最后这条消息没被服务端接收到，服务端会以为出了问题重发，但是客户端已经关闭，服务端就不能正常关闭了\n\n滑动窗口\n\n为了不至于每一个数据都要发送一句应答影响效率，所以可以多个数据统一返回一个应答\n发送者每收到一个应答，后沿就可以移动指定的字节。此时若窗口大小仍然没变，前沿也可以移动指定字节。没有多余空间时，发送者必须等待确认应答\n接收者收到的字节会存入接收窗口，接收者会对已经正确接收的有序字节进行累计确认，发送完确认应答后，接收窗口就可以移动指定字节。如果某些字节并未按序收到，接收者只会确认最后一个有序的字节，从而乱序的字节就会被重新发送\n\n拥塞控制慢开始算法与拥塞避免算法\n发送方维护一个发送窗口而且会动态变化。发送方还维护一个慢开始门限。 发送窗口 &lt; 慢开始门限：使用慢开始算法 发送窗口 &gt; 慢开始门限：使用拥塞避免算法 发送窗口 = 慢开始门限：使用慢开始算法或拥塞避免算法\n开始1，2，4，只要不阻塞就*2，一直到发送窗口&gt;慢开始门限改用拥塞避免算法\n拥塞避免算法，每次收到确认应答后都将发送窗口+1\n如果遇到超时重传的情况，此时：AIMD：a）慢开始门限设为当前发送窗口的一半； b）发送窗口设为1； c）启用拥塞避免算法； \n\n快重传算法与快恢复算法\n快重传原理：因为TCP具有累计确认的能力，因此接收者收到一个分组的时候不会立即发出应答，可能需要等待收到多个分组之后再同一发出累计确认。但快重传算法就要求，接收者如果接收到一个乱序的分组的话，就必须立即发出前一个正确分组的确认应答，这样能让发送者尽早地知道有一个分组可能丢失\n快恢复原理：当发送者收到同一个分组的三个确认应答后，就基本可以判断这个分组已经丢失了；这时候无需等待超时，直接执行上述三部\n","dateCreated":"2018-08-20T12:42:50+08:00","dateModified":"2018-08-21T15:56:44+08:00","datePublished":"2018-08-20T12:42:50+08:00","description":"TCP处于7层结构的第四层，这是一个比较关键的位置，上三层是封装的应用，下三层是相对基础的传输。TCP在这一层承担了为“用下层的传输机制打造一套传输方式为上层提供安全的传输”的任务。其中我们关注较","headline":"TCP三次握手与四次挥手及拥塞控制","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/"}</script>
+    <meta name="description" content="TCP处于7层结构的第四层，这是一个比较关键的位置，上三层是封装的应用，下三层是相对基础的传输。TCP在这一层承担了为“用下层的传输机制打造一套传输方式为上层提供安全的传输”的任务。其中我们关注较">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="TCP三次握手与四次挥手及拥塞控制">
+<meta property="og:url" content="http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/index.html">
+<meta property="og:site_name" content="Gwon NyeongJin">
+<meta property="og:description" content="TCP处于7层结构的第四层，这是一个比较关键的位置，上三层是封装的应用，下三层是相对基础的传输。TCP在这一层承担了为“用下层的传输机制打造一套传输方式为上层提供安全的传输”的任务。其中我们关注较">
+<meta property="og:locale" content="zh-cn">
+<meta property="og:image" content="http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/OSI七层结构.jpg">
+<meta property="og:image" content="http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/三次握手.png">
+<meta property="og:image" content="http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/四次挥手.png">
+<meta property="og:image" content="http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/滑动窗口.jpg">
+<meta property="og:updated_time" content="2018-08-21T07:56:44.168Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TCP三次握手与四次挥手及拥塞控制">
+<meta name="twitter:description" content="TCP处于7层结构的第四层，这是一个比较关键的位置，上三层是封装的应用，下三层是相对基础的传输。TCP在这一层承担了为“用下层的传输机制打造一套传输方式为上层提供安全的传输”的任务。其中我们关注较">
+<meta name="twitter:image" content="http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/OSI七层结构.jpg">
+<meta name="twitter:creator" content="@tranquilpeak">
+    
+        <link rel="publisher" href="https://plus.google.com/123812884128439"/>
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://yoursite.com/assets/images/author.JPG"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    <link rel="stylesheet" href="/assets/css/style-gseklixh5hopgvsfveh0jwhkvakwdjiuogtfz9jmfqmdxq291r5fz66yjc8c.min.css">
+    <!--STYLES END-->
+    
+
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/ ">Gwon NyeongJin</a>
+    </div>
+    
+        
+            <a  class="header-right-picture "
+                href="#about">
+        
+        
+            <img class="header-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about">
+                    <img class="sidebar-profile-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+                </a>
+                <h4 class="sidebar-profile-name">Gwon NyeongJin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/ "
+                            
+                            title="春山如笑"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">春山如笑</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="火树银花"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">火树银花</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="晓风残月"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">晓风残月</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-archives"
+                            
+                            title="飞鸿印雪"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">飞鸿印雪</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/QuinnNorris" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://weibo.com/u/6556522860" target="_blank" rel="noopener" title="Weibo">
+                    
+                        <i class="sidebar-button-icon fab fa-weibo" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Weibo</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://blog.csdn.net/QuinnNorris" target="_blank" rel="noopener" title="CSDN">
+                    
+                        <i class="sidebar-button-icon fab fa-cuttlefish" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">CSDN</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:sei_qnz2015@126.com" target="_blank" rel="noopener" title="E-mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">E-mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-center">
+    
+        <h1 class="post-title">
+            TCP三次握手与四次挥手及拥塞控制
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2018-08-20T12:42:50+08:00">
+	
+		    8月 20, 2018
+    	
+    </time>
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <!-- excerpt --></p>
+<p>TCP处于7层结构的第四层，这是一个比较关键的位置，上三层是封装的应用，下三层是相对基础的传输。TCP在这一层承担了为“用下层的传输机制打造一套传输方式为上层提供安全的传输”的任务。其中我们关注较多的就是TCP的三次握手与四次挥手及拥塞控制的方式。</p>
+<h2 id="OSI七层结构"><a href="#OSI七层结构" class="headerlink" title="OSI七层结构"></a>OSI七层结构</h2><p><img src="OSI七层结构.jpg" alt="OSI七层结构"></p>
+<p>可以看出，OSI中最受关注的就是网络层、传输层和应用层。物理层负责比特流的传输，一般地，我们不关心这一层的实现情况。数据链路层是负责解释物理层传输的比特流，</p>
+<h3 id="OSI结构的封装特点"><a href="#OSI结构的封装特点" class="headerlink" title="OSI结构的封装特点"></a>OSI结构的封装特点</h3><p>OSI结构保证了多台服务器间层与层的对应关系、单台服务器间各层的透明关系。</p>
+<p>比如两台机器A和B，在任何时刻A的任意一层比如网络层都直接对应于B的网络层。对于A和B的两个网络层来说，他们认为自己是直接和对面的网络层“交流”的。实际上从物理上来看，经历了A的数据从网络层到数据链路层再到物理层，再传输到B，再从物理层到数据链路层到网络层的流程。但是实际的操作对于两方的网络层并不可见，OSI结构中各层之间进行了封装，上层不关心下层具体如何实现，只需要“调用函数”即可，耦合度低。</p>
+<h3 id="局域网与互联网的概念差异"><a href="#局域网与互联网的概念差异" class="headerlink" title="局域网与互联网的概念差异"></a>局域网与互联网的概念差异</h3><p>局域网就是在固定的一个地理区域内由2台以上的电脑用网线和其他网络设备搭建而成的一个封闭的计算机组。局域网内部可以互相访问，局域网内部会给每个机器分配内部的IP，局域网也常常被叫做内网。城域网、广域网只是局域网在范围上的扩大，这里不做讨论。互联网是多个局域网的集合，如果我们想要和外面的世界（其他的局域网系统）互联，需要路由器和互联网交换数据，互联网也有一个全球统一的IP，这个IP是外网IP和局域网的内网IP是两个东西，我们称互联网为外网。我们和外部网络链接依靠的是外网IP。我国的网络只是算是广域网，运营商将广域网的IP和互联网的IP会做一个映射。</p>
+<h3 id="ARP、MAC与IP的概念差异"><a href="#ARP、MAC与IP的概念差异" class="headerlink" title="ARP、MAC与IP的概念差异"></a>ARP、MAC与IP的概念差异</h3><p>对于任意一台机器而言，在外网上他的32位IPv4地址是唯一的但不是固定的。因为IP有限而且要全球唯一，所以供应商会在他的IP池中保留闲置没有使用的IP，当机器联网则为其分配IP，所以每次联网时机器的IP可能不同。这样会导致一个问题，如果IP并不是标识某一个机器id的作用，那么在分配IP时如何确认是哪一台机器需要被分配呢？此处使用了MAC地址的概念，48位MAC地址是物理地址，在机器出场时就将其烧到网卡中，除非更换网卡否则MAC地址不变。在开机分配IP时通过ARP(地址协议解析)的方法传输报文将IP与MAC关联起来，ARP协议实现任意网络层地址到任意物理地址的转换。</p>
+<p>那么MAC地址真的能保证全世界唯一么？不能。MAC地址是由48位十六进制字符串组成的，前24位标示不同厂商的代码，也称为唯一的标示符。后24位是由各厂商自行分配的，称为拓展标示符。虽然容量很大，但是还是存在理论重复的可能。但是两点确保了不会因为唯一性出错。</p>
+<ul>
+<li>外网IP分配到局域网，局域网分配子网时通过ARP映射MAC，所以只要确保局域网内部MAC不重复即可</li>
+<li>如果局域网内部MAC发生了重复，ARP可以将重复的MAC做一些改动，来避免重复，因为我们通过IP映射MAC时读取的是ARP上缓存的MAC信息，并不会到硬件上读取，所以只要改变了缓存的数据即可</li>
+</ul>
+<p>综上所述我们得出结论，在任何时刻MAC地址都能满足局域网唯一，在某一个时刻IP地址都能满足全球唯一。但是实际上这两种概念是有些重复的，他们都是作为一种标识，为什么需要这两者呢？</p>
+<ul>
+<li>为什么有了IP还有MAC？ MAC早于IP出现，而且不一定所有的网络都使用IP协议，所以MAC存在是有必要的</li>
+<li>为什么有了MAC还有IP？ 不同厂商的MAC格式有很大不同，用各类MAC来标识不规范，而且MAC本身没有意义，只是表示地址，而IP经过划分概念清晰</li>
+<li>为什么OSI中的IP层要映射到MAC，不用MAC不行么？ IP处于网络层，MAC处于数据链路层，OSI中各层间是解耦透明的，IP并不关心下层如何实现这种标识的概念，用MAC地址是合理的</li>
+</ul>
+<h2 id="TCP和UDP区别"><a href="#TCP和UDP区别" class="headerlink" title="TCP和UDP区别"></a>TCP和UDP区别</h2><h3 id="UDP特点"><a href="#UDP特点" class="headerlink" title="UDP特点"></a>UDP特点</h3><ul>
+<li>UDP只是在IP协议数据报的基础上增加了一点差错检测，复用的功能，所以功能很有限，实际应用也很有限</li>
+<li>UDP是无连接的，接收方并不会阻塞等待接收</li>
+<li>UDP和IP一样是不可靠的，数据包可能会丢失或者出错</li>
+<li>相比较TCP更快速，但是不稳定，比如在视频等场合，允许数据丢失，但是要求速度快</li>
+<li>UDP支持一对一，一对多，多对多等通信方式</li>
+</ul>
+<h3 id="TCP特点"><a href="#TCP特点" class="headerlink" title="TCP特点"></a>TCP特点</h3><ul>
+<li>TCP是面向连接的，在进行TCP传输之前会进行三次握手确保数据可靠</li>
+<li>同样，结束的时候也会进行四次挥手，确保传输结束，交换机是双全工通信</li>
+<li>TCP是点到点的通信</li>
+</ul>
+<h2 id="三次握手"><a href="#三次握手" class="headerlink" title="三次握手"></a>三次握手</h2><p>看到过一个题目：“如何利用UDP实现可靠连接”。个人认为，这道题目的考察点在于TCP的三次握手。因为我们知道TCP是使用不可靠的IP协议完成了可靠的传输，而UDP是IP的一种简单包装。我们用UDP实现三次握手，也是一个可靠的传输了。这道题目考察点很深刻，真正理解网络的同学才能理解考官的出题意图。</p>
+<p><img src="三次握手.png" alt="三次握手"></p>
+<ol>
+<li>客户端和服务端打开连接，服务端进入监听模式Listen</li>
+<li>客户端向服务端发送消息，SYN=1，ACK=0，seq=x（本次服务开始的初始序号），进入SYN-SENT</li>
+<li>服务端接收到消息，向客户端发送SYN=1，ACK=1，seq=y（服务端初始序号），ack=x+1（表示希望客户端下一个从x+1开始发送），进入SYN-RCVD</li>
+<li>客户端接受到回执，向服务端再发送SYN=1，ACK=1，seq=x+1（开始发送x+1），ack=y+1（希望对方下一个发送y+1），进入完成状态</li>
+<li>服务端收到消息也进入完成状态</li>
+</ol>
+<h2 id="四次挥手"><a href="#四次挥手" class="headerlink" title="四次挥手"></a>四次挥手</h2><p><img src="四次挥手.png" alt="四次挥手"></p>
+<ol>
+<li>客户端先进入关闭状态，发送请求FIN=1，ACK=0，seq=u（u-1是最后发送给服务端的序号），状态变为FIN-WAIT1</li>
+<li>服务端接收到请求，通知响应的服务即将关闭，也进入关闭状态，发送FIN=0，ACK=1，seq=w（服务端向客户端发送的最后一个序号），ack=u+1，进入CLOSE-WAIT状态等待其他服务的关闭</li>
+<li>其他服务关闭后，且客户端没有重发请求，服务端再次发送一条，FIN=1，ACK=1，seq=v，ack=u+1，进入LAST-ACK状态</li>
+<li>客户端接受到消息之后，会发送一条消息FIN=0，ACK=1，seq=u+1，ack=v+1表示确认关闭，之后经过一段时间再关闭，因为如果直接关闭，最后这条消息没被服务端接收到，服务端会以为出了问题重发，但是客户端已经关闭，服务端就不能正常关闭了</li>
+</ol>
+<h2 id="滑动窗口"><a href="#滑动窗口" class="headerlink" title="滑动窗口"></a>滑动窗口</h2><p><img src="滑动窗口.jpg" alt="滑动窗口"></p>
+<ul>
+<li>为了不至于每一个数据都要发送一句应答影响效率，所以可以多个数据统一返回一个应答</li>
+<li>发送者每收到一个应答，后沿就可以移动指定的字节。此时若窗口大小仍然没变，前沿也可以移动指定字节。没有多余空间时，发送者必须等待确认应答</li>
+<li>接收者收到的字节会存入接收窗口，接收者会对已经正确接收的有序字节进行累计确认，发送完确认应答后，接收窗口就可以移动指定字节。如果某些字节并未按序收到，接收者只会确认最后一个有序的字节，从而乱序的字节就会被重新发送</li>
+</ul>
+<h2 id="拥塞控制"><a href="#拥塞控制" class="headerlink" title="拥塞控制"></a>拥塞控制</h2><h3 id="慢开始算法与拥塞避免算法"><a href="#慢开始算法与拥塞避免算法" class="headerlink" title="慢开始算法与拥塞避免算法"></a>慢开始算法与拥塞避免算法</h3><ol>
+<li>发送方维护一个发送窗口而且会动态变化。发送方还维护一个慢开始门限。 发送窗口 &lt; 慢开始门限：使用慢开始算法 发送窗口 &gt; 慢开始门限：使用拥塞避免算法 发送窗口 = 慢开始门限：使用慢开始算法或拥塞避免算法</li>
+<li>开始1，2，4，只要不阻塞就*2，一直到发送窗口&gt;慢开始门限改用拥塞避免算法</li>
+<li>拥塞避免算法，每次收到确认应答后都将发送窗口+1</li>
+<li>如果遇到超时重传的情况，此时：AIMD：a）慢开始门限设为当前发送窗口的一半； b）发送窗口设为1； c）启用拥塞避免算法； </li>
+</ol>
+<h3 id="快重传算法与快恢复算法"><a href="#快重传算法与快恢复算法" class="headerlink" title="快重传算法与快恢复算法"></a>快重传算法与快恢复算法</h3><ol>
+<li>快重传原理：因为TCP具有累计确认的能力，因此接收者收到一个分组的时候不会立即发出应答，可能需要等待收到多个分组之后再同一发出累计确认。但快重传算法就要求，接收者如果接收到一个乱序的分组的话，就必须立即发出前一个正确分组的确认应答，这样能让发送者尽早地知道有一个分组可能丢失</li>
+<li>快恢复原理：当发送者收到同一个分组的三个确认应答后，就基本可以判断这个分组已经丢失了；这时候无需等待超时，直接执行上述三部</li>
+</ol>
+            
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/20/Linux文件架构与基本操作命令汇总/" data-tooltip="Linux文件架构与基本操作命令汇总" aria-label="下一篇: Linux文件架构与基本操作命令汇总">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/&amp;title=TCP三次握手与四次挥手及拥塞控制" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="gitment"></div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2018 Gwon NyeongJin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/08/20/Linux文件架构与基本操作命令汇总/" data-tooltip="Linux文件架构与基本操作命令汇总" aria-label="下一篇: Linux文件架构与基本操作命令汇总">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/&amp;title=TCP三次握手与四次挥手及拥塞控制" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+    <i id="btn-close-shareoptions" class="fa fa-times"></i>
+    <ul class="share-options">
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/">
+                    <i class="fab fa-weibo" aria-hidden="true"></i><span>分享到 Weibo</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/&amp;title=TCP三次握手与四次挥手及拥塞控制">
+                    <i class="fab fa-qq" aria-hidden="true"></i><span>分享到 QQ</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/">
+                    <i class="fa fa-star" aria-hidden="true"></i><span>分享到 Qzone</span>
+                </a>
+            </li>
+        
+    </ul>
+</div>
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+            <h4 id="about-card-name">Gwon NyeongJin</h4>
+        
+            <div id="about-card-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>student,ECNU</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                ShangHai,China
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/cover.jpg');"></div>
+        <!--SCRIPTS-->
+<script src="/assets/js/script-w92hbokc213ea69hftijqvxc1viotvpgnjvc4eyqwabobtvt4gyxbn08yj5r.min.js"></script>
+<!--SCRIPTS END-->
+
+    
+        <script type="text/javascript">
+            (function() {
+                function render() {
+                    new Gitment({
+                        id: 'http://yoursite.com/2018/08/20/TCP三次握手与四次挥手及拥塞控制/',
+                        owner: 'QuinnNorris',
+                        repo: 'QuinnNorris.github.io',
+                        oauth: {
+                            client_id: '0e7c41f03dfb1c28ea35',
+                            client_secret: '3220af0710c19324499245a612c05094f6ee3321',
+                        }
+                    }).render('gitment');
+                }
+                var gc = document.createElement('script');
+                gc.type = 'text/javascript';
+                gc.src = '//imsun.github.io/gitment/dist/gitment.browser.js';
+                gc.charset = 'UTF-8';
+                gc.onload = render;
+                gc.async = true;
+                document.querySelector('body').appendChild(gc);
+                var gcs = document.createElement('link');
+                gcs.href = '//imsun.github.io/gitment/style/default.css';
+                gcs.type = 'text/css';
+                gcs.rel = 'stylesheet';
+                gcs.media = 'screen,print';
+                document.querySelector('head').appendChild(gcs);
+            })();
+	    </script>
+    
+
+
+
+    </body>
+</html>
