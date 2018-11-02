@@ -13,18 +13,18 @@
         <link rel="icon" href="http://yoursite.com/assets/images/author.JPG">
     
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"","dateCreated":"2018-08-20T12:40:14+08:00","dateModified":"2018-08-20T12:41:57+08:00","datePublished":"2018-08-20T12:40:14+08:00","description":"目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这","headline":"JAVA对象创建的前世今生","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/20/JAVA对象创建的前世今生/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/20/JAVA对象创建的前世今生/"}</script>
-    <meta name="description" content="目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这">
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\n一个很经典的问题，JAVA对象在使用new后经过了哪些阶段完成对象的创建？这篇文章就详细的总结一下对象创建的全部过程，结合JVM深入分析创建流程。最后我们还会介绍一下类加载器和双亲委派模型的机制以及在现实中的体现。\n类加载器机制JAVA允许类从不同的地方被加载，只要得到的是二进制的class文件即可进行运行，所以需要一个管理加载类文件的工具，这个工具就是类加载器。类加载器负责加载类文件到JVM中。\nJAVA中有多个系统自己定义的类加载器：\n\n启动类加载器Bootstrap ClassLoader，负责加载\\lib目录下核心库（rt.jar目录）\n扩展类加载器Extension ClassLoader，负责加载\\lib\\ext\n应用类加载器Application ClassLoader，负责加载用户编写的类目录的文件\n类加载器之间是相互独立的，概念类似于命名空间，两个不同的类加载器中的同名类是不同的。\n\n双亲委派模式如果没有双亲委派模式，那么我们在自己的类中写一个Object类理论是可以的，因为和rt包中的不属于一个命名空间，但是问题在于这样会使得计算机不能了解应该加载哪个类而出现问题。双亲委派模式就是为了解决这种问题而出现的。\n双亲委派模式会使得多个类加载器间有一定的联系，一个用户编写的类需要加载的时候，理论上应该使用应用类加载器，但是根据双亲委派模式，他需要先让自己的父加载器看一下能否加载，如果父加载器能够加载则轮不到他。所以在加载类的时候会先追溯到启动类加载器，如果它不能处理这个类则逐级向下，得到处理为止，如果应用类加载器也加载失败，就会使用自定义加载器去尝试加载。都不能处理就报错。\n优点和局限性\nJava类伴随其类加载器具备了带有优先级的层次关系，确保了在各种加载环境的加载顺序。\n保证了运行的安全性，防止不可信类扮演可信任的类。\n因为具有层级的概念，父类加载器看不到子类加载器能够加载的文件。灵活性差。\n\nSPI破坏Java 提供了很多服务提供者接口（Service Provider Interface，SPI），允许第三方为这些接口提供实现。比如JNDI服务的代码由启动类加载器去加载(rt.jar)，但JNDI的目的就是对资源进行集中管理和查找，它需要调用独立厂商实现部署在应用程序的classpath下的JNDI接口提供者(SPI, Service Provider Interface)的代码，但启动类加载器不可能“认识”这些代码。\njdk1.2开始为我们提供了“线程上下文类加载器”，在代码运行的时候，我们可以从Thread中获取到线程上下文类加载器，这个加载器默认是当前的应用加载器，这样使得我们可以在核心服务中使用应用加载器。\n热部署破坏/扩展想要实现热部署可以分以下三个步骤：\n\n销毁该自定义ClassLoader\n更新class类文件\n创建新的ClassLoader去加载更新后的class类文件\n\n这三步骤的实现必然需要一套类加载器的逻辑来实现。比如OSGI类加载器模型。OSGI能够实现热插拔以及动态加载依靠的正是对双亲委派模型的扩展，具体逻辑如下。 但收到类加载请求时，OSGi会按照下面的顺序进行搜索：\n\n将以java.*开头的类委派给父类加载器加载； \n否则，将委派类表名单内的类委派给父类加载器加载； \n否则，将Import列表中的类威派格Export这个类的Bundle的类加载器加载； \n否则，查找当前Bundle的ClassPath，使用自己的类加载器加载； \n否则，查找类是否在自己的Fragment Bundle中，如果在，则委派给Fragment Bundle的类加载器加载； \n否则，查找Dynamic Import列表的Bundle，委派给对应Bundle的类加载器加载； \n否则，类查找失败。 \n\n上面的查找顺序只有前两条符合双亲委派模型，其余的类查找都是在平级的类加载器中进行的。\n类加载器在tomcat中的应用在Tomcat目录结构中，有3组目录（“/common/*”、“/server/*”和“/shared/*”）可以存放Java类库，另外还可以加上Web应用程序自身的目录“/WEB-INF/*”，一共4组，把Java类库放置在这些目录中的含义分别如下：\n\n放置在/common目录中CommonClassLoader：类库可被Tomcat和所有的Web应用程序共同使用。\n放置在/server目录中CatalinaClassLoader：类库可被Tomcat使用，对所有的Web应用程序都不可见。\n放置在/shared目录中SharedClassLoader：类库可被所有的Web应用程序共同使用，但对Tomcat自己不可见。\n放置在/WebApp/WEB-INF目录中WebappClassLoader：类库仅仅可以被此Web应用程序使用，对Tomcat和其他Web应用程序都不可见。\n而JasperLoader的加载范围仅仅是这个JSP文件所编译出来的那一个.Class文件，它出现的目的就是为了被丢弃：当Web容器检测到JSP文件被修改时，会替换掉目前的JasperLoader的实例，并通过再建立一个新的Jsp类加载器来实现JSP文件的HotSwap功能。\n","dateCreated":"2018-08-20T12:40:14+08:00","dateModified":"2018-08-21T18:06:00+08:00","datePublished":"2018-08-20T12:40:14+08:00","description":"一个很经典的问题，JAVA对象在使用new后经过了哪些阶段完成对象的创建？这篇文章就详细的总结一下对象创建的全部过程，结合JVM深入分析创建流程。最后我们还会介绍一下类加载器和双亲委派模型的机制以及","headline":"JAVA对象创建的前世今生","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/08/20/JAVA对象创建的前世今生/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/08/20/JAVA对象创建的前世今生/"}</script>
+    <meta name="description" content="一个很经典的问题，JAVA对象在使用new后经过了哪些阶段完成对象的创建？这篇文章就详细的总结一下对象创建的全部过程，结合JVM深入分析创建流程。最后我们还会介绍一下类加载器和双亲委派模型的机制以及">
 <meta property="og:type" content="blog">
 <meta property="og:title" content="JAVA对象创建的前世今生">
 <meta property="og:url" content="http://yoursite.com/2018/08/20/JAVA对象创建的前世今生/index.html">
 <meta property="og:site_name" content="Gwon NyeongJin">
-<meta property="og:description" content="目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这">
+<meta property="og:description" content="一个很经典的问题，JAVA对象在使用new后经过了哪些阶段完成对象的创建？这篇文章就详细的总结一下对象创建的全部过程，结合JVM深入分析创建流程。最后我们还会介绍一下类加载器和双亲委派模型的机制以及">
 <meta property="og:locale" content="zh-cn">
-<meta property="og:updated_time" content="2018-08-20T04:41:57.260Z">
+<meta property="og:updated_time" content="2018-08-21T10:06:00.846Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="JAVA对象创建的前世今生">
-<meta name="twitter:description" content="目前我们使用的HTTP协议是HTTP1.1，对于现在的网络来说这个版本的协议足够好用和稳定。HTTP2相比较HTTP1.x进行了更多的优化，大幅度的提升了web的性能，让网络足够优秀，进一步减少了网络的延迟。这">
+<meta name="twitter:description" content="一个很经典的问题，JAVA对象在使用new后经过了哪些阶段完成对象的创建？这篇文章就详细的总结一下对象创建的全部过程，结合JVM深入分析创建流程。最后我们还会介绍一下类加载器和双亲委派模型的机制以及">
 <meta name="twitter:creator" content="@tranquilpeak">
     
         <link rel="publisher" href="https://plus.google.com/123812884128439"/>
@@ -227,6 +227,49 @@
     <div class="post-content markdown">
         <div class="main-content-wrap">
             <!-- excerpt --></p>
+<p>一个很经典的问题，JAVA对象在使用new后经过了哪些阶段完成对象的创建？这篇文章就详细的总结一下对象创建的全部过程，结合JVM深入分析创建流程。最后我们还会介绍一下类加载器和双亲委派模型的机制以及在现实中的体现。</p>
+<h2 id="类加载器机制"><a href="#类加载器机制" class="headerlink" title="类加载器机制"></a>类加载器机制</h2><p>JAVA允许类从不同的地方被加载，只要得到的是二进制的class文件即可进行运行，所以需要一个管理加载类文件的工具，这个工具就是类加载器。类加载器负责加载类文件到JVM中。</p>
+<p>JAVA中有多个系统自己定义的类加载器：</p>
+<ul>
+<li>启动类加载器Bootstrap ClassLoader，负责加载\lib目录下核心库（rt.jar目录）</li>
+<li>扩展类加载器Extension ClassLoader，负责加载\lib\ext</li>
+<li>应用类加载器Application ClassLoader，负责加载用户编写的类目录的文件</li>
+<li>类加载器之间是相互独立的，概念类似于命名空间，两个不同的类加载器中的同名类是不同的。</li>
+</ul>
+<h2 id="双亲委派模式"><a href="#双亲委派模式" class="headerlink" title="双亲委派模式"></a>双亲委派模式</h2><p>如果没有双亲委派模式，那么我们在自己的类中写一个Object类理论是可以的，因为和rt包中的不属于一个命名空间，但是问题在于这样会使得计算机不能了解应该加载哪个类而出现问题。双亲委派模式就是为了解决这种问题而出现的。</p>
+<p>双亲委派模式会使得多个类加载器间有一定的联系，一个用户编写的类需要加载的时候，理论上应该使用应用类加载器，但是根据双亲委派模式，他需要先让自己的父加载器看一下能否加载，如果父加载器能够加载则轮不到他。所以在加载类的时候会先追溯到启动类加载器，如果它不能处理这个类则逐级向下，得到处理为止，如果应用类加载器也加载失败，就会使用自定义加载器去尝试加载。都不能处理就报错。</p>
+<h3 id="优点和局限性"><a href="#优点和局限性" class="headerlink" title="优点和局限性"></a>优点和局限性</h3><ul>
+<li>Java类伴随其类加载器具备了带有优先级的层次关系，确保了在各种加载环境的加载顺序。</li>
+<li>保证了运行的安全性，防止不可信类扮演可信任的类。</li>
+<li>因为具有层级的概念，父类加载器看不到子类加载器能够加载的文件。灵活性差。</li>
+</ul>
+<h3 id="SPI破坏"><a href="#SPI破坏" class="headerlink" title="SPI破坏"></a>SPI破坏</h3><p>Java 提供了很多服务提供者接口（Service Provider Interface，SPI），允许第三方为这些接口提供实现。比如JNDI服务的代码由启动类加载器去加载(rt.jar)，但JNDI的目的就是对资源进行集中管理和查找，它需要调用独立厂商实现部署在应用程序的classpath下的JNDI接口提供者(SPI, Service Provider Interface)的代码，但启动类加载器不可能“认识”这些代码。</p>
+<p>jdk1.2开始为我们提供了“线程上下文类加载器”，在代码运行的时候，我们可以从Thread中获取到线程上下文类加载器，这个加载器默认是当前的应用加载器，这样使得我们可以在核心服务中使用应用加载器。</p>
+<h3 id="热部署破坏-扩展"><a href="#热部署破坏-扩展" class="headerlink" title="热部署破坏/扩展"></a>热部署破坏/扩展</h3><p>想要实现热部署可以分以下三个步骤：</p>
+<ol>
+<li>销毁该自定义ClassLoader</li>
+<li>更新class类文件</li>
+<li>创建新的ClassLoader去加载更新后的class类文件</li>
+</ol>
+<p>这三步骤的实现必然需要一套类加载器的逻辑来实现。比如OSGI类加载器模型。OSGI能够实现热插拔以及动态加载依靠的正是对双亲委派模型的扩展，具体逻辑如下。 但收到类加载请求时，OSGi会按照下面的顺序进行搜索：</p>
+<ul>
+<li>将以java.*开头的类委派给父类加载器加载； </li>
+<li>否则，将委派类表名单内的类委派给父类加载器加载； </li>
+<li>否则，将Import列表中的类威派格Export这个类的Bundle的类加载器加载； </li>
+<li>否则，查找当前Bundle的ClassPath，使用自己的类加载器加载； </li>
+<li>否则，查找类是否在自己的Fragment Bundle中，如果在，则委派给Fragment Bundle的类加载器加载； </li>
+<li>否则，查找Dynamic Import列表的Bundle，委派给对应Bundle的类加载器加载； </li>
+<li>否则，类查找失败。 </li>
+</ul>
+<p>上面的查找顺序只有前两条符合双亲委派模型，其余的类查找都是在平级的类加载器中进行的。</p>
+<h2 id="类加载器在tomcat中的应用"><a href="#类加载器在tomcat中的应用" class="headerlink" title="类加载器在tomcat中的应用"></a>类加载器在tomcat中的应用</h2><p>在Tomcat目录结构中，有3组目录（“/common/*”、“/server/*”和“/shared/*”）可以存放Java类库，另外还可以加上Web应用程序自身的目录“/WEB-INF/*”，一共4组，把Java类库放置在这些目录中的含义分别如下：</p>
+<ul>
+<li>放置在/common目录中CommonClassLoader：类库可被Tomcat和所有的Web应用程序共同使用。</li>
+<li>放置在/server目录中CatalinaClassLoader：类库可被Tomcat使用，对所有的Web应用程序都不可见。</li>
+<li>放置在/shared目录中SharedClassLoader：类库可被所有的Web应用程序共同使用，但对Tomcat自己不可见。</li>
+<li>放置在/WebApp/WEB-INF目录中WebappClassLoader：类库仅仅可以被此Web应用程序使用，对Tomcat和其他Web应用程序都不可见。</li>
+<li>而JasperLoader的加载范围仅仅是这个JSP文件所编译出来的那一个.Class文件，它出现的目的就是为了被丢弃：当Web容器检测到JSP文件被修改时，会替换掉目前的JasperLoader的实例，并通过再建立一个新的Jsp类加载器来实现JSP文件的HotSwap功能。</li>
+</ul>
             
 
         </div>
@@ -259,7 +302,7 @@
     </nav>
     <ul class="post-actions post-action-share">
         <li class="post-action hide-lg hide-md hide-sm">
-            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Share this post">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
         </li>
@@ -299,7 +342,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#" aria-label="Back to top">
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -353,7 +396,7 @@
     </nav>
     <ul class="post-actions post-action-share">
         <li class="post-action hide-lg hide-md hide-sm">
-            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Share this post">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
         </li>
@@ -393,7 +436,7 @@
         
         <li class="post-action">
             
-                <a class="post-action-btn btn btn--default" href="#" aria-label="Back to top">
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
             
                 <i class="fa fa-list" aria-hidden="true"></i>
             </a>
@@ -460,7 +503,7 @@
             <div id="about-card-job">
                 <i class="fa fa-briefcase"></i>
                 <br/>
-                <p>student,ECNU</p>
+                <p>蚂蚁金服</p>
 
             </div>
         
@@ -468,7 +511,7 @@
             <div id="about-card-location">
                 <i class="fa fa-map-marker-alt"></i>
                 <br/>
-                ShangHai,China
+                杭州
             </div>
         
     </div>
