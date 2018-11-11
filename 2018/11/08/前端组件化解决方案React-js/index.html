@@ -1,0 +1,571 @@
+
+<!DOCTYPE html>
+<html lang="zh-cn">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="Gwon NyeongJin">
+    <title>前端组件化解决方案React.js - Gwon NyeongJin</title>
+    <meta name="author" content="Gwon NyeongJin">
+    
+    
+        <link rel="icon" href="http://yoursite.com/assets/images/author.JPG">
+    
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG"},"articleBody":"\n技术背景JavaScript刚刚出现的时候，它的功能只是htmlDOM修改以及简单的动态响应。但是随着技术的发展，现在前端脚本所承担的压力越来越大，在一个项目中JS的代码也越写越多。这样就出现了一个问题，因为JS可以理解成是对html的修饰，所以这两种语言的耦合度是很高的，如果两段html有略微不同那么操作他们的JS代码也会不同，虽然JS的不同可能也是微乎其微的，但是这还是要让你ctrl+cv一遍，写出非常雷同的两段代码。简单的说，耦合性造成了我们写下了很多重复度很高的代码。如何化繁为简？一种思路是将前端的页面组件化，一块样式对应一块固定的代码，我们称之为一块组件，将这段代码中具有耦合性的部分抽取出来单独封装。让组件可以复用，从而为编写者减负，这就是React.js的核心思想。\n如何利用React.js搭建前端React.js提供了一种组件的概念，只要我们合理的利用组件，就可以很大程度上减轻工作量。React作为一种基本的库，有很多框架是以此库为基础并提供了常用的控件的代码。这里使用的是AntD作为框架，这个框架是基于React的。另外一提的是，这里也有使用TypeScript，这是一种在团队开发上比JS更和善的类JS语言，主要是为JS中不受限制的类型做规定，减少很多不必要的歧义。TypeScript也是基于ES6的。\n安装按照下面的指令执行，最后会自动打开浏览器展示执行效果。\n12345Plain Textsudo npm install -g create-react-appcreate-react-app hello-reactcd hello-reactnpm start\n一个简单的React实例\n通过JSX语言我们直接在render中用html的格式写出这块组件所体现的效果\nrender中必须要用一个外层元素把内容进行包裹\n类名可以作为标签名出现，首字母需要大写\nstate的主要作用是用于组件保存、控制、修改自己的可变状态\nstate中状态可以通过setState方法进行更新，setState会导致组件的重新渲染\nprops的主要作用是让使用该组件的父组件可以传入参数来配置该组件\n除非外部组件主动传入新的props，否则组件的props永远保持不变\n尽量少地用state，尽量多地用props\n\n123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051import React, &#123; Component &#125; from &apos;react&apos;import ReactDOM from &apos;react-dom&apos;import &apos;./index.css&apos;class Header extends Component &#123;  render () &#123;    return (      &lt;div&gt;        &lt;h1&gt;React 小书&lt;/h1&gt;      &lt;/div&gt;    )  &#125;&#125;ReactDOM.render(  &lt;Header /&gt;,  document.getElementById(&apos;root&apos;))Plain Textclass LikeButton extends Component &#123;  constructor () &#123;    super()    this.state = &#123; isLiked: false &#125;  &#125;  handleClickOnLikeButton () &#123;    this.setState(&#123;      isLiked: !this.state.isLiked    &#125;)  &#125;  render () &#123;    const wordings = this.props.wordings || &#123;      likedText: &apos;quxiao&apos;,      unlikedText: &apos;dianzan&apos;    &#125;    return (      &lt;button onClick=&#123;this.handleClickOnLikeButton.bind(this)&#125;&gt;        &#123;this.state.isLiked ? wordings.likedText : wordings.unlikedText&#125; zan      &lt;/button&gt;    )  &#125;&#125;\n组件渲染周期因为React的逻辑是将组建的html样式放在render中，然后通过挂载的方式渲染到html页面中，那么这其中必有一个渲染的过程。如果有渲染的过程，也就必然有渲染前、后、取消渲染的过程。这些过程都被React捕捉到了，并且实现了方法，我们可以通过重写这些方法来在我们想要的地方进行操作。\n\ncomponentWillMount：组件挂载开始之前，也就是在组件调用 render 方法之前调用\ncomponentDidMount：组件挂载完成以后，也就是 DOM 元素已经插入页面后调用\ncomponentWillUnmount：组件对应的 DOM 元素从页面中删除之前调用\n\nredux使用React的时候通常会伴随使用redux，这里简单的介绍一下redux是什么。\n在使用React的时候需要使用到state，这表示是一个状态，有的时候不仅当前的组件需要使用这个状态，这个组件的子组件也需要使用它。这时候我们就把这个状态作为props传入下一个组件中，但是如果我们这个状态非常通用，几乎所有的组件都需要使用，那么此时所有的组件都传一遍显然是不好的做法。我们在React中有一个context的说法，这个变量可以让所有的组件都获取到，我们可以把这个状态存入context中，这样解决了这个问题。可是随之而来的又有一个问题，如果所有的组件都能访问到context，如果他们都对其进行修改，会导致错误，所以需要一个单点修改的实现。这就是redux。\n应用中所有的state都以一个对象树的形式储存在一个单一的store中。惟一改变state的办法是触发action，一个描述发生什么的对象。为了描述action如何改变state树，你需要编写reducers。\n一些其他技巧在我们详细的说明如何使用React-redux之前，我们先看一些其他的React技巧，其中不乏我们在下面仍然会使用到的。\n\n在JSX中使用大括号，大括号中可以放任何React的变量、语法，我们向其中写入逻辑，使用map遍历列表数据并用html包含数据进行展示渲染，JSX可以做到\n如果我们想进入页面以后自动focus到某个输入框需要使用input.focus()。React提供了ref属性来帮助我们获取已经挂载的元素的DOM节点，你可以给某个JSX元素加上ref属性\n可以使用dangerouslySetHTML，让你的代码可以插入原生的html语句\n高阶组件做一层包裹，可以包含可复用的组件，让下层的组件能够复用，而自己与其他逻辑结合，保持子组件的可复用性\ncontext，最高层组件调用getChildContext方法，添加stats，让它所有的子孙组件都能访问到这个状态\n\n1234567891011121314151617181920212223242526272829303132333435363738394041424344454647484950515253545556575859606162636465class Index extends Component &#123;  render () &#123;    return (      &lt;div&gt;        &#123;[          &lt;span&gt;React.js &lt;/span&gt;,          &lt;span&gt;is &lt;/span&gt;,          &lt;span&gt;good&lt;/span&gt;        ]&#125;      &lt;/div&gt;    )  &#125;&#125;ReactDOM.render(  &lt;Index /&gt;,  document.getElementById(&apos;root&apos;))class AutoFocusInput extends Component &#123;  componentDidMount () &#123;    this.input.focus()  &#125;  render () &#123;    return (      &lt;input ref=&#123;(input) =&gt; this.input = input&#125; /&gt;    )  &#125;&#125;ReactDOM.render(  &lt;AutoFocusInput /&gt;,  document.getElementById(&apos;root&apos;))render () &#123;    return (      &lt;div        className=&apos;editor-wrapper&apos;        dangerouslySetInnerHTML=&#123;&#123;__html: this.state.content&#125;&#125; /&gt;    )&#125;import React, &#123; Component &#125; from &apos;react&apos;export default (WrappedComponent) =&gt; &#123;  class NewComponent extends Component &#123;    // 可以做很多自定义逻辑    render () &#123;      return &lt;WrappedComponent /&gt;    &#125;  &#125;  return NewComponent&#125;getChildContext () &#123;    return &#123; themeColor: this.state.themeColor &#125;&#125;\n实现一个基本的redux层层递进的思考，redux模式是如何形成的：\n\n如果每个组件都有修改状态的方法，安全性差\n我们需要一个dispatch方法，为这个方法传入“把哪个状态改成哪个状态”的信息，让这个函数代为操作\n我们创建一个叫做createStore的方法，这个方法传入要所有的状态和reducer，这里的reducer做的就是“给状态和行动，根据行动改变状态”这个方法不受任何其他事物的干扰，只要参数确定了，这个方法的结果是固定的。createStore返回两个函数组成的对象，一个函数是获取状态的get函数，另一个是传入行动（行动在一般情况下只改变成为的状态），根据行动调reducer的dispatch方法。createStore方法为我们提供了“一个原状态的包装和一个执行修改的引擎，这个引擎需要我们自己传入行动”。createStore的意义在于提供了一层封装，让其他的APP也可以使用这种模式，并且之后还有一些监听的功能，这种功能如果直接放在dispatch里面比较复杂，但是放在createStore中是比较合理的。\n我们通过上面的方法解决了状态更改的问题，但是状态更改之后我们通常要重新渲染页面，这个时候我们需要手动调用渲染的方法，这样比较复杂，我们这里推荐使用观察者模式在createStore返回值一个subscribe方法，传入自己就可以添加为观察者\n这样我们又解决了自动渲染的问题，但是又有一个问题。如果我们每次都要渲染，即使新的改动并不涉及到渲染，我们还这样做就会耗费很大资源且不必要，所以我们要在渲染之前做个判断，现在的状态是不是和上一次一样。因为我们知道，一个对象如果只改变其中的字段内容，对象引用不变则==是判断不出来的（如果JAVA我们可以使用equals）。这里我们使用一个比较复杂的方法，我们在每次进行需要页面重新渲染的更新的时候，在更新的代码里采用…var的语法对主对象和需要更新的对象浅拷贝，这样不影响渲染的字段不会触发重新渲染，需要渲染的字段可以正确触发\n最后我们发现，state参数和reducer其实可以合二为一，因为state初始化可以在reducer中完成，这样就形成了reducer的最终形态\n\n123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100101102103104105106107108109110function dispatch (action) &#123;  switch (action.type) &#123;    case &apos;UPDATE_TITLE_TEXT&apos;:      appState.title.text = action.text      break    case &apos;UPDATE_TITLE_COLOR&apos;:      appState.title.color = action.color      break    default:      break  &#125;&#125;function createStore (state, stateChanger) &#123;  const getState = () =&gt; state  const dispatch = (action) =&gt; stateChanger(state, action)  return &#123; getState, dispatch &#125;&#125;function createStore (state, stateChanger) &#123;  const listeners = []  const subscribe = (listener) =&gt; listeners.push(listener)  const getState = () =&gt; state  const dispatch = (action) =&gt; &#123;    stateChanger(state, action)    listeners.forEach((listener) =&gt; listener())  &#125;  return &#123; getState, dispatch, subscribe &#125;&#125;function stateChanger (state, action) &#123;  switch (action.type) &#123;    case &apos;UPDATE_TITLE_TEXT&apos;:      return &#123; // 构建新的对象并且返回        ...state,        title: &#123;          ...state.title,          text: action.text        &#125;      &#125;    case &apos;UPDATE_TITLE_COLOR&apos;:      return &#123; // 构建新的对象并且返回        ...state,        title: &#123;          ...state.title,          color: action.color        &#125;      &#125;    default:      return state // 没有修改，返回原来的对象  &#125;&#125;function themeReducer (state, action) &#123;  if (!state) return &#123;    themeName: &apos;Red Theme&apos;,    themeColor: &apos;red&apos;  &#125;  switch (action.type) &#123;    case &apos;UPATE_THEME_NAME&apos;:      return &#123; ...state, themeName: action.themeName &#125;    case &apos;UPATE_THEME_COLOR&apos;:      return &#123; ...state, themeColor: action.themeColor &#125;    default:      return state  &#125;&#125;const store = createStore(themeReducer)function reducer (state, action) &#123;  if (!state) &#123;    return &#123;      title: &#123;        text: &apos;React.js 小书&apos;,        color: &apos;red&apos;,      &#125;,      content: &#123;        text: &apos;React.js 小书内容&apos;,        color: &apos;blue&apos;      &#125;    &#125;  &#125;  switch (action.type) &#123;    case &apos;UPDATE_TITLE_TEXT&apos;:      return &#123;        ...state,        title: &#123;          ...state.title,          text: action.text        &#125;      &#125;    case &apos;UPDATE_TITLE_COLOR&apos;:      return &#123;        ...state,        title: &#123;          ...state.title,          color: action.color        &#125;      &#125;    default:      return state  &#125;&#125;\n现在我们实现了一个基本的redux，操作步骤如下：\n1234567891011121314151617181920// 定一个 reducerfunction reducer (state, action) &#123;  /* 初始化 state 和 switch case */&#125;// 生成 storeconst store = createStore(reducer)// 监听数据变化重新渲染页面store.subscribe(() =&gt; renderApp(store.getState()))// 首次渲染页面renderApp(store.getState()) // 后面可以随意 dispatch 了，页面自动更新store.dispatch(...)\nReact-redux我们上文已经大概讲述了redux的工作原理，下面我们将redux和React结合\n\n我们再把下面的各层组件都加上store\n这样的确完成了我们的编写，但是问题在于各个组件重复度太高，而且和context的耦合度太大\n如果一个组件只依赖于上层传进去的props和自己的state，并不依赖于context和其他数据，那么这就是一个Dumb组件，这种组件是可以复用的，其他的组件叫做Smart组件，是不容易复用的，为了复用性，我们可以使用高阶组件包围Dumb组件，把context放在高阶组件中处理。为了让高阶组件能够获取store的数据，我们通过一个mapStateToProps的方法\n现在我们把状态放入了Dumb组件中，现在还有一个问题就是，我们如何让Dumb组件触发dispatch，Dumb组件没有context，没有直接的createStore。这时候我们可以像上面的mapDispatchToProps一样类似state把dispatch传进去\n这样我们就完成了所有的操作，最后还有一点，现在我们的store是在Index组件中声明的，实际上没有逻辑的问题，但是在结构上，我们还是希望能将store和逻辑代码分开来。这里我们可以采用一个Provider的组件，让它成为Index的父组件，也就是所有组件的祖先组件，把store相关的逻辑放进去，净化我们逻辑部分的代码\n\n123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100101102103104105106107108109110111112113114115116117118119120121122123124125126127128129130131132133134135136137138139140141142143144145146147148149150151152153154155156157158159160161162163164165166167168169170171172173174175176177178179180181182183184185186187188189190191192193194195196197198199200201202203204205206207208209210211212213214215216217218219220221222223224225226227228229230231232233234235236237238239240241import React, &#123; Component &#125; from &apos;react&apos;import PropTypes from &apos;prop-types&apos;import ReactDOM from &apos;react-dom&apos;import Header from &apos;./Header&apos;import Content from &apos;./Content&apos;import &apos;./index.css&apos;function createStore (reducer) &#123;  let state = null  const listeners = []  const subscribe = (listener) =&gt; listeners.push(listener)  const getState = () =&gt; state  const dispatch = (action) =&gt; &#123;    state = reducer(state, action)    listeners.forEach((listener) =&gt; listener())  &#125;  dispatch(&#123;&#125;) // 初始化 state  return &#123; getState, dispatch, subscribe &#125;&#125;const themeReducer = (state, action) =&gt; &#123;  if (!state) return &#123;    themeColor: &apos;red&apos;  &#125;  switch (action.type) &#123;    case &apos;CHANGE_COLOR&apos;:      return &#123; ...state, themeColor: action.themeColor &#125;    default:      return state  &#125;&#125;const store = createStore(themeReducer)class Index extends Component &#123;  static childContextTypes = &#123;    store: PropTypes.object  &#125;  getChildContext () &#123;    return &#123; store &#125;  &#125;  render () &#123;    return (      &lt;div&gt;        &lt;Header /&gt;        &lt;Content /&gt;      &lt;/div&gt;    )  &#125;&#125;=========================================================class Content extends Component &#123;  static contextTypes = &#123;    store: PropTypes.object  &#125;  constructor () &#123;    super()    this.state = &#123; themeColor: &apos;&apos; &#125;  &#125;  componentWillMount () &#123;    this._updateThemeColor()  &#125;  _updateThemeColor () &#123;    const &#123; store &#125; = this.context    const state = store.getState()    this.setState(&#123; themeColor: state.themeColor &#125;)  &#125;  render () &#123;    return (      &lt;div&gt;        &lt;p style=&#123;&#123; color: this.state.themeColor &#125;&#125;&gt;React.js 小书内容&lt;/p&gt;        &lt;ThemeSwitch /&gt;      &lt;/div&gt;    )  &#125;&#125;...class ThemeSwitch extends Component &#123;  static contextTypes = &#123;    store: PropTypes.object  &#125;  constructor () &#123;    super()    this.state = &#123; themeColor: &apos;&apos; &#125;  &#125;  componentWillMount () &#123;    this._updateThemeColor()  &#125;  _updateThemeColor () &#123;    const &#123; store &#125; = this.context    const state = store.getState()    this.setState(&#123; themeColor: state.themeColor &#125;)  &#125;  // dispatch action 去改变颜色  handleSwitchColor (color) &#123;    const &#123; store &#125; = this.context    store.dispatch(&#123;      type: &apos;CHANGE_COLOR&apos;,      themeColor: color    &#125;)  &#125;  render () &#123;    return (      &lt;div&gt;        &lt;button          style=&#123;&#123; color: this.state.themeColor &#125;&#125;          onClick=&#123;this.handleSwitchColor.bind(this, &apos;red&apos;)&#125;&gt;Red&lt;/button&gt;        &lt;button          style=&#123;&#123; color: this.state.themeColor &#125;&#125;          onClick=&#123;this.handleSwitchColor.bind(this, &apos;blue&apos;)&#125;&gt;Blue&lt;/button&gt;      &lt;/div&gt;    )  &#125;&#125;=========================================================const mapStateToProps = (state) =&gt; &#123;  return &#123;    themeColor: state.themeColor,    themeName: state.themeName,    fullName: `$&#123;state.firstName&#125; $&#123;state.lastName&#125;`    ...  &#125;&#125;import React, &#123; Component &#125; from &apos;react&apos;import PropTypes from &apos;prop-types&apos;export connect = (WrappedComponent) =&gt; &#123;  class Connect extends Component &#123;    static contextTypes = &#123;      store: PropTypes.object    &#125;    // TODO: 如何从 store 取数据？    render () &#123;      return &lt;WrappedComponent /&gt;    &#125;  &#125;  return Connect&#125;=========================================================export class Provider extends Component &#123;  static propTypes = &#123;    store: PropTypes.object,    children: PropTypes.any  &#125;  static childContextTypes = &#123;    store: PropTypes.object  &#125;  getChildContext () &#123;    return &#123;      store: this.props.store    &#125;  &#125;  render () &#123;    return (      &lt;div&gt;&#123;this.props.children&#125;&lt;/div&gt;    )  &#125;&#125;import &#123; Provider &#125; from &apos;./react-redux&apos;...// 删除 Index 里面所有关于 context 的代码class Index extends Component &#123;  render () &#123;    return (      &lt;div&gt;        &lt;Header /&gt;        &lt;Content /&gt;      &lt;/div&gt;    )  &#125;&#125;// 把 Provider 作为组件树的根节点ReactDOM.render(  &lt;Provider store=&#123;store&#125;&gt;    &lt;Index /&gt;  &lt;/Provider&gt;,  document.getElementById(&apos;root&apos;))\n如果想使用官方版本，将我们上面实现的React-redux中的Rrovider和createStore改成三方库中的即可。","dateCreated":"2018-11-08T16:01:14+08:00","dateModified":"2018-11-08T16:07:51+08:00","datePublished":"2018-11-08T16:01:14+08:00","description":"JavaScript刚刚出现的时候，它的功能只是htmlDOM修改以及简单的动态响应。但是随着技术的发展，现在前端脚本所承担的压力越来越大，在一个项目中JS的代码也越写越多。这样就出现了一个问题，因为","headline":"前端组件化解决方案React.js","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"http://yoursite.com/2018/11/08/前端组件化解决方案React-js/"},"publisher":{"@type":"Organization","name":"Gwon NyeongJin","sameAs":["https://github.com/QuinnNorris","https://weibo.com/u/6556522860","https://blog.csdn.net/QuinnNorris","mailto:sei_qnz2015@126.com"],"image":"author.JPG","logo":{"@type":"ImageObject","url":"author.JPG"}},"url":"http://yoursite.com/2018/11/08/前端组件化解决方案React-js/"}</script>
+    <meta name="description" content="JavaScript刚刚出现的时候，它的功能只是htmlDOM修改以及简单的动态响应。但是随着技术的发展，现在前端脚本所承担的压力越来越大，在一个项目中JS的代码也越写越多。这样就出现了一个问题，因为">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="前端组件化解决方案React.js">
+<meta property="og:url" content="http://yoursite.com/2018/11/08/前端组件化解决方案React-js/index.html">
+<meta property="og:site_name" content="Gwon NyeongJin">
+<meta property="og:description" content="JavaScript刚刚出现的时候，它的功能只是htmlDOM修改以及简单的动态响应。但是随着技术的发展，现在前端脚本所承担的压力越来越大，在一个项目中JS的代码也越写越多。这样就出现了一个问题，因为">
+<meta property="og:locale" content="zh-cn">
+<meta property="og:updated_time" content="2018-11-08T08:07:51.578Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="前端组件化解决方案React.js">
+<meta name="twitter:description" content="JavaScript刚刚出现的时候，它的功能只是htmlDOM修改以及简单的动态响应。但是随着技术的发展，现在前端脚本所承担的压力越来越大，在一个项目中JS的代码也越写越多。这样就出现了一个问题，因为">
+<meta name="twitter:creator" content="@tranquilpeak">
+    
+        <link rel="publisher" href="https://plus.google.com/123812884128439"/>
+    
+    
+        
+    
+    
+        <meta property="og:image" content="http://yoursite.com/assets/images/author.JPG"/>
+    
+    
+    
+    
+    <!--STYLES-->
+    <link rel="stylesheet" href="/assets/css/style-gseklixh5hopgvsfveh0jwhkvakwdjiuogtfz9jmfqmdxq291r5fz66yjc8c.min.css">
+    <!--STYLES END-->
+    
+
+    
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/ ">Gwon NyeongJin</a>
+    </div>
+    
+        
+            <a  class="header-right-picture "
+                href="#about">
+        
+        
+            <img class="header-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about">
+                    <img class="sidebar-profile-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+                </a>
+                <h4 class="sidebar-profile-name">Gwon NyeongJin</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/ "
+                            
+                            title="春山如笑"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">春山如笑</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-categories"
+                            
+                            title="火树银花"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">火树银花</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-tags"
+                            
+                            title="晓风残月"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">晓风残月</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link "
+                             href="/all-archives"
+                            
+                            title="飞鸿印雪"
+                        >
+                    
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">飞鸿印雪</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://github.com/QuinnNorris" target="_blank" rel="noopener" title="GitHub">
+                    
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://weibo.com/u/6556522860" target="_blank" rel="noopener" title="Weibo">
+                    
+                        <i class="sidebar-button-icon fab fa-weibo" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">Weibo</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="https://blog.csdn.net/QuinnNorris" target="_blank" rel="noopener" title="CSDN">
+                    
+                        <i class="sidebar-button-icon fab fa-cuttlefish" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">CSDN</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a  class="sidebar-button-link " href="mailto:sei_qnz2015@126.com" target="_blank" rel="noopener" title="E-mail">
+                    
+                        <i class="sidebar-button-icon fa fa-envelope" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">E-mail</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4"
+                 class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-center">
+    
+        <h1 class="post-title">
+            前端组件化解决方案React.js
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2018-11-08T16:01:14+08:00">
+	
+		    11月 08, 2018
+    	
+    </time>
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <!-- excerpt --></p>
+<h2 id="技术背景"><a href="#技术背景" class="headerlink" title="技术背景"></a>技术背景</h2><p>JavaScript刚刚出现的时候，它的功能只是htmlDOM修改以及简单的动态响应。但是随着技术的发展，现在前端脚本所承担的压力越来越大，在一个项目中JS的代码也越写越多。这样就出现了一个问题，因为JS可以理解成是对html的修饰，所以这两种语言的耦合度是很高的，如果两段html有略微不同那么操作他们的JS代码也会不同，虽然JS的不同可能也是微乎其微的，但是这还是要让你ctrl+cv一遍，写出非常雷同的两段代码。简单的说，耦合性造成了我们写下了很多重复度很高的代码。如何化繁为简？一种思路是将前端的页面组件化，一块样式对应一块固定的代码，我们称之为一块组件，将这段代码中具有耦合性的部分抽取出来单独封装。让组件可以复用，从而为编写者减负，这就是React.js的核心思想。</p>
+<h2 id="如何利用React-js搭建前端"><a href="#如何利用React-js搭建前端" class="headerlink" title="如何利用React.js搭建前端"></a>如何利用React.js搭建前端</h2><p>React.js提供了一种组件的概念，只要我们合理的利用组件，就可以很大程度上减轻工作量。React作为一种基本的库，有很多框架是以此库为基础并提供了常用的控件的代码。这里使用的是AntD作为框架，这个框架是基于React的。另外一提的是，这里也有使用TypeScript，这是一种在团队开发上比JS更和善的类JS语言，主要是为JS中不受限制的类型做规定，减少很多不必要的歧义。TypeScript也是基于ES6的。</p>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><p>按照下面的指令执行，最后会自动打开浏览器展示执行效果。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Plain Text</span><br><span class="line">sudo npm install -g create-react-app</span><br><span class="line">create-react-app hello-react</span><br><span class="line">cd hello-react</span><br><span class="line">npm start</span><br></pre></td></tr></table></figure>
+<h2 id="一个简单的React实例"><a href="#一个简单的React实例" class="headerlink" title="一个简单的React实例"></a>一个简单的React实例</h2><ul>
+<li>通过JSX语言我们直接在render中用html的格式写出这块组件所体现的效果</li>
+<li>render中必须要用一个外层元素把内容进行包裹</li>
+<li>类名可以作为标签名出现，首字母需要大写</li>
+<li>state的主要作用是用于组件保存、控制、修改自己的可变状态</li>
+<li>state中状态可以通过setState方法进行更新，setState会导致组件的重新渲染</li>
+<li>props的主要作用是让使用该组件的父组件可以传入参数来配置该组件</li>
+<li>除非外部组件主动传入新的props，否则组件的props永远保持不变</li>
+<li>尽量少地用state，尽量多地用props</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">import React, &#123; Component &#125; from &apos;react&apos;</span><br><span class="line">import ReactDOM from &apos;react-dom&apos;</span><br><span class="line">import &apos;./index.css&apos;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">class Header extends Component &#123;</span><br><span class="line">  render () &#123;</span><br><span class="line">    return (</span><br><span class="line">      &lt;div&gt;</span><br><span class="line">        &lt;h1&gt;React 小书&lt;/h1&gt;</span><br><span class="line">      &lt;/div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">ReactDOM.render(</span><br><span class="line">  &lt;Header /&gt;,</span><br><span class="line">  document.getElementById(&apos;root&apos;)</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">Plain Text</span><br><span class="line">class LikeButton extends Component &#123;</span><br><span class="line">  constructor () &#123;</span><br><span class="line">    super()</span><br><span class="line">    this.state = &#123; isLiked: false &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  handleClickOnLikeButton () &#123;</span><br><span class="line">    this.setState(&#123;</span><br><span class="line">      isLiked: !this.state.isLiked</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  render () &#123;</span><br><span class="line">    const wordings = this.props.wordings || &#123;</span><br><span class="line">      likedText: &apos;quxiao&apos;,</span><br><span class="line">      unlikedText: &apos;dianzan&apos;</span><br><span class="line">    &#125;</span><br><span class="line">    return (</span><br><span class="line">      &lt;button onClick=&#123;this.handleClickOnLikeButton.bind(this)&#125;&gt;</span><br><span class="line">        &#123;this.state.isLiked ? wordings.likedText : wordings.unlikedText&#125; zan</span><br><span class="line">      &lt;/button&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="组件渲染周期"><a href="#组件渲染周期" class="headerlink" title="组件渲染周期"></a>组件渲染周期</h2><p>因为React的逻辑是将组建的html样式放在render中，然后通过挂载的方式渲染到html页面中，那么这其中必有一个渲染的过程。如果有渲染的过程，也就必然有渲染前、后、取消渲染的过程。这些过程都被React捕捉到了，并且实现了方法，我们可以通过重写这些方法来在我们想要的地方进行操作。</p>
+<ul>
+<li>componentWillMount：组件挂载开始之前，也就是在组件调用 render 方法之前调用</li>
+<li>componentDidMount：组件挂载完成以后，也就是 DOM 元素已经插入页面后调用</li>
+<li>componentWillUnmount：组件对应的 DOM 元素从页面中删除之前调用</li>
+</ul>
+<h2 id="redux"><a href="#redux" class="headerlink" title="redux"></a>redux</h2><p>使用React的时候通常会伴随使用redux，这里简单的介绍一下redux是什么。</p>
+<p>在使用React的时候需要使用到state，这表示是一个状态，有的时候不仅当前的组件需要使用这个状态，这个组件的子组件也需要使用它。这时候我们就把这个状态作为props传入下一个组件中，但是如果我们这个状态非常通用，几乎所有的组件都需要使用，那么此时所有的组件都传一遍显然是不好的做法。我们在React中有一个context的说法，这个变量可以让所有的组件都获取到，我们可以把这个状态存入context中，这样解决了这个问题。可是随之而来的又有一个问题，如果所有的组件都能访问到context，如果他们都对其进行修改，会导致错误，所以需要一个单点修改的实现。这就是redux。</p>
+<p>应用中所有的state都以一个对象树的形式储存在一个单一的store中。惟一改变state的办法是触发action，一个描述发生什么的对象。为了描述action如何改变state树，你需要编写reducers。</p>
+<h2 id="一些其他技巧"><a href="#一些其他技巧" class="headerlink" title="一些其他技巧"></a>一些其他技巧</h2><p>在我们详细的说明如何使用React-redux之前，我们先看一些其他的React技巧，其中不乏我们在下面仍然会使用到的。</p>
+<ul>
+<li>在JSX中使用大括号，大括号中可以放任何React的变量、语法，我们向其中写入逻辑，使用map遍历列表数据并用html包含数据进行展示渲染，JSX可以做到</li>
+<li>如果我们想进入页面以后自动focus到某个输入框需要使用input.focus()。React提供了ref属性来帮助我们获取已经挂载的元素的DOM节点，你可以给某个JSX元素加上ref属性</li>
+<li>可以使用dangerouslySetHTML，让你的代码可以插入原生的html语句</li>
+<li>高阶组件做一层包裹，可以包含可复用的组件，让下层的组件能够复用，而自己与其他逻辑结合，保持子组件的可复用性</li>
+<li>context，最高层组件调用getChildContext方法，添加stats，让它所有的子孙组件都能访问到这个状态</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line">class Index extends Component &#123;</span><br><span class="line">  render () &#123;</span><br><span class="line">    return (</span><br><span class="line">      &lt;div&gt;</span><br><span class="line">        &#123;[</span><br><span class="line">          &lt;span&gt;React.js &lt;/span&gt;,</span><br><span class="line">          &lt;span&gt;is &lt;/span&gt;,</span><br><span class="line">          &lt;span&gt;good&lt;/span&gt;</span><br><span class="line">        ]&#125;</span><br><span class="line">      &lt;/div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">ReactDOM.render(</span><br><span class="line">  &lt;Index /&gt;,</span><br><span class="line">  document.getElementById(&apos;root&apos;)</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">class AutoFocusInput extends Component &#123;</span><br><span class="line">  componentDidMount () &#123;</span><br><span class="line">    this.input.focus()</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  render () &#123;</span><br><span class="line">    return (</span><br><span class="line">      &lt;input ref=&#123;(input) =&gt; this.input = input&#125; /&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">ReactDOM.render(</span><br><span class="line">  &lt;AutoFocusInput /&gt;,</span><br><span class="line">  document.getElementById(&apos;root&apos;)</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">render () &#123;</span><br><span class="line">    return (</span><br><span class="line">      &lt;div</span><br><span class="line">        className=&apos;editor-wrapper&apos;</span><br><span class="line">        dangerouslySetInnerHTML=&#123;&#123;__html: this.state.content&#125;&#125; /&gt;</span><br><span class="line">    )</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">import React, &#123; Component &#125; from &apos;react&apos;</span><br><span class="line">export default (WrappedComponent) =&gt; &#123;</span><br><span class="line">  class NewComponent extends Component &#123;</span><br><span class="line">    // 可以做很多自定义逻辑</span><br><span class="line">    render () &#123;</span><br><span class="line">      return &lt;WrappedComponent /&gt;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  return NewComponent</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">getChildContext () &#123;</span><br><span class="line">    return &#123; themeColor: this.state.themeColor &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="实现一个基本的redux"><a href="#实现一个基本的redux" class="headerlink" title="实现一个基本的redux"></a>实现一个基本的redux</h2><p>层层递进的思考，redux模式是如何形成的：</p>
+<ul>
+<li>如果每个组件都有修改状态的方法，安全性差</li>
+<li>我们需要一个dispatch方法，为这个方法传入“把哪个状态改成哪个状态”的信息，让这个函数代为操作</li>
+<li>我们创建一个叫做createStore的方法，这个方法传入要所有的状态和reducer，这里的reducer做的就是“给状态和行动，根据行动改变状态”这个方法不受任何其他事物的干扰，只要参数确定了，这个方法的结果是固定的。createStore返回两个函数组成的对象，一个函数是获取状态的get函数，另一个是传入行动（行动在一般情况下只改变成为的状态），根据行动调reducer的dispatch方法。createStore方法为我们提供了“一个原状态的包装和一个执行修改的引擎，这个引擎需要我们自己传入行动”。createStore的意义在于提供了一层封装，让其他的APP也可以使用这种模式，并且之后还有一些监听的功能，这种功能如果直接放在dispatch里面比较复杂，但是放在createStore中是比较合理的。</li>
+<li>我们通过上面的方法解决了状态更改的问题，但是状态更改之后我们通常要重新渲染页面，这个时候我们需要手动调用渲染的方法，这样比较复杂，我们这里推荐使用观察者模式在createStore返回值一个subscribe方法，传入自己就可以添加为观察者</li>
+<li>这样我们又解决了自动渲染的问题，但是又有一个问题。如果我们每次都要渲染，即使新的改动并不涉及到渲染，我们还这样做就会耗费很大资源且不必要，所以我们要在渲染之前做个判断，现在的状态是不是和上一次一样。因为我们知道，一个对象如果只改变其中的字段内容，对象引用不变则==是判断不出来的（如果JAVA我们可以使用equals）。这里我们使用一个比较复杂的方法，我们在每次进行需要页面重新渲染的更新的时候，在更新的代码里采用…var的语法对主对象和需要更新的对象浅拷贝，这样不影响渲染的字段不会触发重新渲染，需要渲染的字段可以正确触发</li>
+<li>最后我们发现，state参数和reducer其实可以合二为一，因为state初始化可以在reducer中完成，这样就形成了reducer的最终形态</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br></pre></td><td class="code"><pre><span class="line">function dispatch (action) &#123;</span><br><span class="line">  switch (action.type) &#123;</span><br><span class="line">    case &apos;UPDATE_TITLE_TEXT&apos;:</span><br><span class="line">      appState.title.text = action.text</span><br><span class="line">      break</span><br><span class="line">    case &apos;UPDATE_TITLE_COLOR&apos;:</span><br><span class="line">      appState.title.color = action.color</span><br><span class="line">      break</span><br><span class="line">    default:</span><br><span class="line">      break</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">function createStore (state, stateChanger) &#123;</span><br><span class="line">  const getState = () =&gt; state</span><br><span class="line">  const dispatch = (action) =&gt; stateChanger(state, action)</span><br><span class="line">  return &#123; getState, dispatch &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">function createStore (state, stateChanger) &#123;</span><br><span class="line">  const listeners = []</span><br><span class="line">  const subscribe = (listener) =&gt; listeners.push(listener)</span><br><span class="line">  const getState = () =&gt; state</span><br><span class="line">  const dispatch = (action) =&gt; &#123;</span><br><span class="line">    stateChanger(state, action)</span><br><span class="line">    listeners.forEach((listener) =&gt; listener())</span><br><span class="line">  &#125;</span><br><span class="line">  return &#123; getState, dispatch, subscribe &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">function stateChanger (state, action) &#123;</span><br><span class="line">  switch (action.type) &#123;</span><br><span class="line">    case &apos;UPDATE_TITLE_TEXT&apos;:</span><br><span class="line">      return &#123; // 构建新的对象并且返回</span><br><span class="line">        ...state,</span><br><span class="line">        title: &#123;</span><br><span class="line">          ...state.title,</span><br><span class="line">          text: action.text</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    case &apos;UPDATE_TITLE_COLOR&apos;:</span><br><span class="line">      return &#123; // 构建新的对象并且返回</span><br><span class="line">        ...state,</span><br><span class="line">        title: &#123;</span><br><span class="line">          ...state.title,</span><br><span class="line">          color: action.color</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    default:</span><br><span class="line">      return state // 没有修改，返回原来的对象</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">function themeReducer (state, action) &#123;</span><br><span class="line">  if (!state) return &#123;</span><br><span class="line">    themeName: &apos;Red Theme&apos;,</span><br><span class="line">    themeColor: &apos;red&apos;</span><br><span class="line">  &#125;</span><br><span class="line">  switch (action.type) &#123;</span><br><span class="line">    case &apos;UPATE_THEME_NAME&apos;:</span><br><span class="line">      return &#123; ...state, themeName: action.themeName &#125;</span><br><span class="line">    case &apos;UPATE_THEME_COLOR&apos;:</span><br><span class="line">      return &#123; ...state, themeColor: action.themeColor &#125;</span><br><span class="line">    default:</span><br><span class="line">      return state</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">const store = createStore(themeReducer)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">function reducer (state, action) &#123;</span><br><span class="line">  if (!state) &#123;</span><br><span class="line">    return &#123;</span><br><span class="line">      title: &#123;</span><br><span class="line">        text: &apos;React.js 小书&apos;,</span><br><span class="line">        color: &apos;red&apos;,</span><br><span class="line">      &#125;,</span><br><span class="line">      content: &#123;</span><br><span class="line">        text: &apos;React.js 小书内容&apos;,</span><br><span class="line">        color: &apos;blue&apos;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  switch (action.type) &#123;</span><br><span class="line">    case &apos;UPDATE_TITLE_TEXT&apos;:</span><br><span class="line">      return &#123;</span><br><span class="line">        ...state,</span><br><span class="line">        title: &#123;</span><br><span class="line">          ...state.title,</span><br><span class="line">          text: action.text</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    case &apos;UPDATE_TITLE_COLOR&apos;:</span><br><span class="line">      return &#123;</span><br><span class="line">        ...state,</span><br><span class="line">        title: &#123;</span><br><span class="line">          ...state.title,</span><br><span class="line">          color: action.color</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    default:</span><br><span class="line">      return state</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>现在我们实现了一个基本的redux，操作步骤如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">// 定一个 reducer</span><br><span class="line">function reducer (state, action) &#123;</span><br><span class="line">  /* 初始化 state 和 switch case */</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">// 生成 store</span><br><span class="line">const store = createStore(reducer)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">// 监听数据变化重新渲染页面</span><br><span class="line">store.subscribe(() =&gt; renderApp(store.getState()))</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">// 首次渲染页面</span><br><span class="line">renderApp(store.getState()) </span><br><span class="line"></span><br><span class="line"></span><br><span class="line">// 后面可以随意 dispatch 了，页面自动更新</span><br><span class="line">store.dispatch(...)</span><br></pre></td></tr></table></figure>
+<h2 id="React-redux"><a href="#React-redux" class="headerlink" title="React-redux"></a>React-redux</h2><p>我们上文已经大概讲述了redux的工作原理，下面我们将redux和React结合</p>
+<ul>
+<li>我们再把下面的各层组件都加上store</li>
+<li>这样的确完成了我们的编写，但是问题在于各个组件重复度太高，而且和context的耦合度太大</li>
+<li>如果一个组件只依赖于上层传进去的props和自己的state，并不依赖于context和其他数据，那么这就是一个Dumb组件，这种组件是可以复用的，其他的组件叫做Smart组件，是不容易复用的，为了复用性，我们可以使用高阶组件包围Dumb组件，把context放在高阶组件中处理。为了让高阶组件能够获取store的数据，我们通过一个mapStateToProps的方法</li>
+<li>现在我们把状态放入了Dumb组件中，现在还有一个问题就是，我们如何让Dumb组件触发dispatch，Dumb组件没有context，没有直接的createStore。这时候我们可以像上面的mapDispatchToProps一样类似state把dispatch传进去</li>
+<li>这样我们就完成了所有的操作，最后还有一点，现在我们的store是在Index组件中声明的，实际上没有逻辑的问题，但是在结构上，我们还是希望能将store和逻辑代码分开来。这里我们可以采用一个Provider的组件，让它成为Index的父组件，也就是所有组件的祖先组件，把store相关的逻辑放进去，净化我们逻辑部分的代码</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br></pre></td><td class="code"><pre><span class="line">import React, &#123; Component &#125; from &apos;react&apos;</span><br><span class="line">import PropTypes from &apos;prop-types&apos;</span><br><span class="line">import ReactDOM from &apos;react-dom&apos;</span><br><span class="line">import Header from &apos;./Header&apos;</span><br><span class="line">import Content from &apos;./Content&apos;</span><br><span class="line">import &apos;./index.css&apos;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">function createStore (reducer) &#123;</span><br><span class="line">  let state = null</span><br><span class="line">  const listeners = []</span><br><span class="line">  const subscribe = (listener) =&gt; listeners.push(listener)</span><br><span class="line">  const getState = () =&gt; state</span><br><span class="line">  const dispatch = (action) =&gt; &#123;</span><br><span class="line">    state = reducer(state, action)</span><br><span class="line">    listeners.forEach((listener) =&gt; listener())</span><br><span class="line">  &#125;</span><br><span class="line">  dispatch(&#123;&#125;) // 初始化 state</span><br><span class="line">  return &#123; getState, dispatch, subscribe &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">const themeReducer = (state, action) =&gt; &#123;</span><br><span class="line">  if (!state) return &#123;</span><br><span class="line">    themeColor: &apos;red&apos;</span><br><span class="line">  &#125;</span><br><span class="line">  switch (action.type) &#123;</span><br><span class="line">    case &apos;CHANGE_COLOR&apos;:</span><br><span class="line">      return &#123; ...state, themeColor: action.themeColor &#125;</span><br><span class="line">    default:</span><br><span class="line">      return state</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">const store = createStore(themeReducer)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">class Index extends Component &#123;</span><br><span class="line">  static childContextTypes = &#123;</span><br><span class="line">    store: PropTypes.object</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  getChildContext () &#123;</span><br><span class="line">    return &#123; store &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  render () &#123;</span><br><span class="line">    return (</span><br><span class="line">      &lt;div&gt;</span><br><span class="line">        &lt;Header /&gt;</span><br><span class="line">        &lt;Content /&gt;</span><br><span class="line">      &lt;/div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">=========================================================</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">class Content extends Component &#123;</span><br><span class="line">  static contextTypes = &#123;</span><br><span class="line">    store: PropTypes.object</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  constructor () &#123;</span><br><span class="line">    super()</span><br><span class="line">    this.state = &#123; themeColor: &apos;&apos; &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  componentWillMount () &#123;</span><br><span class="line">    this._updateThemeColor()</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  _updateThemeColor () &#123;</span><br><span class="line">    const &#123; store &#125; = this.context</span><br><span class="line">    const state = store.getState()</span><br><span class="line">    this.setState(&#123; themeColor: state.themeColor &#125;)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  render () &#123;</span><br><span class="line">    return (</span><br><span class="line">      &lt;div&gt;</span><br><span class="line">        &lt;p style=&#123;&#123; color: this.state.themeColor &#125;&#125;&gt;React.js 小书内容&lt;/p&gt;</span><br><span class="line">        &lt;ThemeSwitch /&gt;</span><br><span class="line">      &lt;/div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">class ThemeSwitch extends Component &#123;</span><br><span class="line">  static contextTypes = &#123;</span><br><span class="line">    store: PropTypes.object</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  constructor () &#123;</span><br><span class="line">    super()</span><br><span class="line">    this.state = &#123; themeColor: &apos;&apos; &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  componentWillMount () &#123;</span><br><span class="line">    this._updateThemeColor()</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  _updateThemeColor () &#123;</span><br><span class="line">    const &#123; store &#125; = this.context</span><br><span class="line">    const state = store.getState()</span><br><span class="line">    this.setState(&#123; themeColor: state.themeColor &#125;)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  // dispatch action 去改变颜色</span><br><span class="line">  handleSwitchColor (color) &#123;</span><br><span class="line">    const &#123; store &#125; = this.context</span><br><span class="line">    store.dispatch(&#123;</span><br><span class="line">      type: &apos;CHANGE_COLOR&apos;,</span><br><span class="line">      themeColor: color</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  render () &#123;</span><br><span class="line">    return (</span><br><span class="line">      &lt;div&gt;</span><br><span class="line">        &lt;button</span><br><span class="line">          style=&#123;&#123; color: this.state.themeColor &#125;&#125;</span><br><span class="line">          onClick=&#123;this.handleSwitchColor.bind(this, &apos;red&apos;)&#125;&gt;Red&lt;/button&gt;</span><br><span class="line">        &lt;button</span><br><span class="line">          style=&#123;&#123; color: this.state.themeColor &#125;&#125;</span><br><span class="line">          onClick=&#123;this.handleSwitchColor.bind(this, &apos;blue&apos;)&#125;&gt;Blue&lt;/button&gt;</span><br><span class="line">      &lt;/div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">=========================================================</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">const mapStateToProps = (state) =&gt; &#123;</span><br><span class="line">  return &#123;</span><br><span class="line">    themeColor: state.themeColor,</span><br><span class="line">    themeName: state.themeName,</span><br><span class="line">    fullName: `$&#123;state.firstName&#125; $&#123;state.lastName&#125;`</span><br><span class="line">    ...</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">import React, &#123; Component &#125; from &apos;react&apos;</span><br><span class="line">import PropTypes from &apos;prop-types&apos;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">export connect = (WrappedComponent) =&gt; &#123;</span><br><span class="line">  class Connect extends Component &#123;</span><br><span class="line">    static contextTypes = &#123;</span><br><span class="line">      store: PropTypes.object</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    // TODO: 如何从 store 取数据？</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    render () &#123;</span><br><span class="line">      return &lt;WrappedComponent /&gt;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  return Connect</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">=========================================================</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">export class Provider extends Component &#123;</span><br><span class="line">  static propTypes = &#123;</span><br><span class="line">    store: PropTypes.object,</span><br><span class="line">    children: PropTypes.any</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  static childContextTypes = &#123;</span><br><span class="line">    store: PropTypes.object</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  getChildContext () &#123;</span><br><span class="line">    return &#123;</span><br><span class="line">      store: this.props.store</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  render () &#123;</span><br><span class="line">    return (</span><br><span class="line">      &lt;div&gt;&#123;this.props.children&#125;&lt;/div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">import &#123; Provider &#125; from &apos;./react-redux&apos;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">// 删除 Index 里面所有关于 context 的代码</span><br><span class="line">class Index extends Component &#123;</span><br><span class="line">  render () &#123;</span><br><span class="line">    return (</span><br><span class="line">      &lt;div&gt;</span><br><span class="line">        &lt;Header /&gt;</span><br><span class="line">        &lt;Content /&gt;</span><br><span class="line">      &lt;/div&gt;</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">// 把 Provider 作为组件树的根节点</span><br><span class="line">ReactDOM.render(</span><br><span class="line">  &lt;Provider store=&#123;store&#125;&gt;</span><br><span class="line">    &lt;Index /&gt;</span><br><span class="line">  &lt;/Provider&gt;,</span><br><span class="line">  document.getElementById(&apos;root&apos;)</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>如果想使用官方版本，将我们上面实现的React-redux中的Rrovider和createStore改成三方库中的即可。</p>
+            
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/11/08/企业化开发的前端脚手架BigFish/" data-tooltip="企业化开发的前端脚手架BigFish" aria-label="下一篇: 企业化开发的前端脚手架BigFish">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/11/08/前端组件化解决方案React-js/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/11/08/前端组件化解决方案React-js/&amp;title=前端组件化解决方案React.js" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/11/08/前端组件化解决方案React-js/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+                <div id="gitment"></div>
+            
+        
+    </div>
+</article>
+
+
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2018 Gwon NyeongJin. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled">
+                
+                    <i class="fa fa-angle-left" aria-hidden="true"></i>
+                    <span class="hide-xs hide-sm text-small icon-ml">上一篇</span>
+                </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                    <a class="post-action-btn btn btn--default tooltip--top" href="/2018/11/08/企业化开发的前端脚手架BigFish/" data-tooltip="企业化开发的前端脚手架BigFish" aria-label="下一篇: 企业化开发的前端脚手架BigFish">
+                
+                    <span class="hide-xs hide-sm text-small icon-mr">下一篇</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="Diesen Beitrag teilen">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/11/08/前端组件化解决方案React-js/" title="分享到 Weibo">
+                    <i class="fab fa-weibo" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/11/08/前端组件化解决方案React-js/&amp;title=前端组件化解决方案React.js" title="分享到 QQ">
+                    <i class="fab fa-qq" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/11/08/前端组件化解决方案React-js/" title="分享到 Qzone">
+                    <i class="fa fa-star" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+                <li class="post-action">
+                    <a class="post-action-btn btn btn--default" href="#gitment">
+                         <i class="fa fa-comment"></i>
+                    </a>
+                </li>
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="Nach oben">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+    <i id="btn-close-shareoptions" class="fa fa-times"></i>
+    <ul class="share-options">
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://service.weibo.com/share/share.php?&amp;title=http://yoursite.com/2018/11/08/前端组件化解决方案React-js/">
+                    <i class="fab fa-weibo" aria-hidden="true"></i><span>分享到 Weibo</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://connect.qq.com/widget/shareqq/index.html?url=http://yoursite.com/2018/11/08/前端组件化解决方案React-js/&amp;title=前端组件化解决方案React.js">
+                    <i class="fab fa-qq" aria-hidden="true"></i><span>分享到 QQ</span>
+                </a>
+            </li>
+        
+            
+            
+            <li class="share-option">
+                <a class="share-option-btn" target="new" href="http://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=http://yoursite.com/2018/11/08/前端组件化解决方案React-js/">
+                    <i class="fa fa-star" aria-hidden="true"></i><span>分享到 Qzone</span>
+                </a>
+            </li>
+        
+    </ul>
+</div>
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/author.JPG" alt="作者的图片"/>
+        
+            <h4 id="about-card-name">Gwon NyeongJin</h4>
+        
+            <div id="about-card-bio"><p>桃李春风一杯酒，江湖夜雨十年灯</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br/>
+                <p>ANT FINANCIAL</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                HangZhou,China
+            </div>
+        
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/cover.jpg');"></div>
+        <!--SCRIPTS-->
+<script src="/assets/js/script-w92hbokc213ea69hftijqvxc1viotvpgnjvc4eyqwabobtvt4gyxbn08yj5r.min.js"></script>
+<!--SCRIPTS END-->
+
+    
+        <script type="text/javascript">
+            (function() {
+                function render() {
+                    new Gitment({
+                        id: 'http://yoursite.com/2018/11/08/前端组件化解决方案React-js/',
+                        owner: 'QuinnNorris',
+                        repo: 'QuinnNorris.github.io',
+                        oauth: {
+                            client_id: '0e7c41f03dfb1c28ea35',
+                            client_secret: '3220af0710c19324499245a612c05094f6ee3321',
+                        }
+                    }).render('gitment');
+                }
+                var gc = document.createElement('script');
+                gc.type = 'text/javascript';
+                gc.src = '//imsun.github.io/gitment/dist/gitment.browser.js';
+                gc.charset = 'UTF-8';
+                gc.onload = render;
+                gc.async = true;
+                document.querySelector('body').appendChild(gc);
+                var gcs = document.createElement('link');
+                gcs.href = '//imsun.github.io/gitment/style/default.css';
+                gcs.type = 'text/css';
+                gcs.rel = 'stylesheet';
+                gcs.media = 'screen,print';
+                document.querySelector('head').appendChild(gcs);
+            })();
+	    </script>
+    
+
+
+
+    </body>
+</html>
